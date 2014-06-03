@@ -5,21 +5,21 @@ description:
 #url: http://jekyll.gtat.me
 
 # Owner/author information
-#owner:
-  #name:           Paul Bridger
+owner:
+  name:           Paul Bridger
   #avatar:         avatar.png
-  #bio:            ""
-  #email:          paul@paulbridger.com
-  #twitter:        paul_bridger        
-  #github:         pbridger       
+  bio:            ""
+  email:          paul@paulbridger.com
+  twitter:        paul_bridger        
+  github:         pbridger       
   #instagram:           
   #dribbble:       
   #disqus:         
   #location:       ""
 
-#tools:
-  #standards:      "HTML, SCSS, Jekyll"
-  #software:       "git"
+tools:
+  standards:      "HTML, SCSS, Jekyll"
+  software:       "git"
 
 # Links to include in top navigation
 # For external links add external: true
