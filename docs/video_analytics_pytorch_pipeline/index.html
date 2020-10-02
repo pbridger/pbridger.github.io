@@ -4,19 +4,19 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Intro #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
+<meta name="description" content="A Simple and Flexible Pytorch Video Pipeline #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
 Performance is out of scope for this first step, but we&rsquo;ll do a deep dive in a later article.">
 <meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="A Simple and Flexible Pytorch Video Pipeline" />
-<meta property="og:description" content="Intro #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
+<meta property="og:description" content="A Simple and Flexible Pytorch Video Pipeline #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
 Performance is out of scope for this first step, but we&rsquo;ll do a deep dive in a later article." />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="pbridger.github.io/docs/video_analytics_pytorch_pipeline/" />
+<meta property="og:url" content="paulbridger.com/docs/video_analytics_pytorch_pipeline/" />
 <meta property="article:published_time" content="2020-08-23T08:43:23+02:00" />
 <meta property="article:modified_time" content="2020-08-23T08:43:23+02:00" />
 <title>A Simple and Flexible Pytorch Video Pipeline | paulbridger.com</title>
-<link rel="manifest" href="/pbridger.github.io/manifest.json">
-<link rel="icon" href="/pbridger.github.io/favicon.png" type="image/x-icon">
-<link rel="stylesheet" href="/pbridger.github.io/book.min.91028b48a67fc5617943c8dc17236b59e64a3c795f22aad952c461c055582264.css" integrity="sha256-kQKLSKZ/xWF5Q8jcFyNrWeZKPHlfIqrZUsRhwFVYImQ=">
+<link rel="manifest" href="/paulbridger.com/manifest.json">
+<link rel="icon" href="/paulbridger.com/favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="/paulbridger.com/book.min.91028b48a67fc5617943c8dc17236b59e64a3c795f22aad952c461c055582264.css" integrity="sha256-kQKLSKZ/xWF5Q8jcFyNrWeZKPHlfIqrZUsRhwFVYImQ=">
 <script type="application/javascript">
 var doNotTrack = false;
 if (!doNotTrack) {
@@ -43,7 +43,7 @@ https://github.com/alex-shpak/hugo-book
       
   <nav>
 <h2 class="book-brand">
-  <a href="/pbridger.github.io"><span>paulbridger.com</span>
+  <a href="/paulbridger.com"><span>paulbridger.com</span>
   </a>
 </h2>
 
@@ -74,7 +74,7 @@ https://github.com/alex-shpak/hugo-book
         <li>
           
   
-    <a href="pbridger.github.io/docs/video_analytics_pytorch_pipeline/" class="active">A Simple and Flexible Pytorch Video Pipeline</a>
+    <a href="paulbridger.com/docs/video_analytics_pytorch_pipeline/" class="active">A Simple and Flexible Pytorch Video Pipeline</a>
   
 
         </li>
@@ -84,7 +84,7 @@ https://github.com/alex-shpak/hugo-book
         <li>
           
   
-    <a href="pbridger.github.io/docs/video_analytics_pipeline_tuning/" class="">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
+    <a href="paulbridger.com/docs/video_analytics_pipeline_tuning/" class="">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
   
 
         </li>
@@ -123,14 +123,14 @@ https://github.com/alex-shpak/hugo-book
         
   <div class="flex align-center justify-between">
   <label for="menu-control">
-    <img src="/pbridger.github.io/svg/menu.svg" class="book-icon" alt="Menu" />
+    <img src="/paulbridger.com/svg/menu.svg" class="book-icon" alt="Menu" />
   </label>
 
   <strong>A Simple and Flexible Pytorch Video Pipeline</strong>
 
   <label for="toc-control">
     
-    <img src="/pbridger.github.io/svg/toc.svg" class="book-icon" alt="Table of Contents" />
+    <img src="/paulbridger.com/svg/toc.svg" class="book-icon" alt="Table of Contents" />
     
   </label>
 </div>
@@ -141,7 +141,6 @@ https://github.com/alex-shpak/hugo-book
     
   <nav id="TableOfContents">
   <ul>
-    <li><a href="#intro">Intro</a></li>
     <li><a href="#step-0-baseline-cli-gstreamer-pipeline">Step 0: Baseline CLI Gstreamer pipeline</a></li>
     <li><a href="#step-1-get-frames-into-python">Step 1: Get frames into Python</a></li>
     <li><a href="#step-2-get-frames-into-pytorch">Step 2: Get frames into Pytorch</a></li>
@@ -156,10 +155,10 @@ https://github.com/alex-shpak/hugo-book
 
       
       
-  <article class="markdown"><h2 id="intro">
-  Intro
-  <a class="anchor" href="#intro">#</a>
-</h2>
+  <article class="markdown"><h1 id="a-simple-and-flexible-pytorch-video-pipeline">
+  A Simple and Flexible Pytorch Video Pipeline
+  <a class="anchor" href="#a-simple-and-flexible-pytorch-video-pipeline">#</a>
+</h1>
 <p>Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: <a href="https://gstreamer.freedesktop.org/">Gstreamer</a> and <a href="https://pytorch.org">Pytorch</a>.</p>
 <p>Performance is out of scope for this first step, but we&rsquo;ll do a deep dive in a later article. Worthwhile throughput improvements are possible with a little effort. We&rsquo;ll also ignore black-box serving toolkits (Nvidia Triton/TensorRT, Kubeflow, TorchServe etc.) so we can understand what&rsquo;s happening end to end.</p>
 <p>The main library we&rsquo;ll be using is <a href="https://gstreamer.freedesktop.org/">Gstreamer</a>, a very flexible and efficient media-processing pipeline that comes with a huge ecosystem of components. In principle these components can be seamlessly swapped out to support different codecs, transformations and outputs but in practice constructing a Gstreamer pipeline can be a tricky process with a lot of iteration.</p>
@@ -185,7 +184,7 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
     
 
 <figure style="margin: 2rem 0">
-    <img src="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/cli.output.svg">
+    <img src="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/cli.output.svg">
 </figure>
 
 
@@ -205,9 +204,9 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
 
 
 
-<a href="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/cli.pipeline.png">
+<a href="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/cli.pipeline.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/cli.pipeline_hu1961d2a9818f6bc6d76dbf2f043727e4_198140_800x0_resize_box_2.png" width="800" height="54">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/cli.pipeline_hu1961d2a9818f6bc6d76dbf2f043727e4_198140_800x0_resize_box_2.png" width="800" height="54">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -289,7 +288,7 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
     
 
 <figure style="margin: 2rem 0">
-    <img src="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/frames_into_python.output.svg">
+    <img src="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/frames_into_python.output.svg">
 </figure>
 
 
@@ -308,9 +307,9 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
 
 
 
-<a href="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/frames_into_python.pipeline.png">
+<a href="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/frames_into_python.pipeline.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/frames_into_python.pipeline_hu8862f21746f9d6519809566160033120_170616_800x0_resize_box_2.png" width="800" height="60">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/frames_into_python.pipeline_hu8862f21746f9d6519809566160033120_170616_800x0_resize_box_2.png" width="800" height="60">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -433,7 +432,7 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
     
 
 <figure style="margin: 2rem 0">
-    <img src="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/frames_into_pytorch.output.svg">
+    <img src="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/frames_into_pytorch.output.svg">
 </figure>
 
 
@@ -452,9 +451,9 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
 
 
 
-<a href="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/frames_into_pytorch.pipeline.png">
+<a href="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/frames_into_pytorch.pipeline.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pytorch_pipeline/images/frames_into_pytorch.pipeline_hu72a2b805021a46ee07dd6bcb47dfba76_195243_800x0_resize_box_2.png" width="800" height="49">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pytorch_pipeline/images/frames_into_pytorch.pipeline_hu72a2b805021a46ee07dd6bcb47dfba76_195243_800x0_resize_box_2.png" width="800" height="49">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -499,7 +498,6 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
       
   <nav id="TableOfContents">
   <ul>
-    <li><a href="#intro">Intro</a></li>
     <li><a href="#step-0-baseline-cli-gstreamer-pipeline">Step 0: Baseline CLI Gstreamer pipeline</a></li>
     <li><a href="#step-1-get-frames-into-python">Step 1: Get frames into Python</a></li>
     <li><a href="#step-2-get-frames-into-pytorch">Step 2: Get frames into Pytorch</a></li>
