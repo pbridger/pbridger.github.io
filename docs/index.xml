@@ -13,7 +13,7 @@
       <pubDate>Sun, 23 Aug 2020 08:43:23 +0200</pubDate>
       
       <guid>https://paulbridger.com/docs/video_analytics_pytorch_pipeline/</guid>
-      <description>A Simple and Flexible Pytorch Video Pipeline #  Taking machine learning models into production for video analytics doesn&amp;rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&amp;rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
+      <description>A Simple and Flexible Pytorch Video Pipeline #  Intro #  Taking machine learning models into production for video analytics doesn&amp;rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&amp;rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
 Performance is out of scope for this first step, but we&amp;rsquo;ll do a deep dive in a later article.</description>
     </item>
     
@@ -23,7 +23,7 @@ Performance is out of scope for this first step, but we&amp;rsquo;ll do a deep d
       <pubDate>Sun, 23 Aug 2020 08:43:23 +0200</pubDate>
       
       <guid>https://paulbridger.com/docs/video_analytics_pipeline_tuning/</guid>
-      <description>From 10 FPS to 650 FPS: Making Deep Learning Fast #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&amp;rsquo;ll have to adjust some assumptions about what patterns are best.
+      <description>From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&amp;rsquo;ll have to adjust some assumptions about what patterns are best.
 This article is a practical deep dive into making a specific deep learning model (Nvidia&amp;rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming.</description>
     </item>
     

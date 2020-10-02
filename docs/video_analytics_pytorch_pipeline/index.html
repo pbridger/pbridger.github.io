@@ -4,10 +4,10 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="A Simple and Flexible Pytorch Video Pipeline #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
+<meta name="description" content="A Simple and Flexible Pytorch Video Pipeline #  Intro #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
 Performance is out of scope for this first step, but we&rsquo;ll do a deep dive in a later article.">
 <meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="A Simple and Flexible Pytorch Video Pipeline" />
-<meta property="og:description" content="A Simple and Flexible Pytorch Video Pipeline #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
+<meta property="og:description" content="A Simple and Flexible Pytorch Video Pipeline #  Intro #  Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
 Performance is out of scope for this first step, but we&rsquo;ll do a deep dive in a later article." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://paulbridger.com/docs/video_analytics_pytorch_pipeline/" />
@@ -141,6 +141,7 @@ https://github.com/alex-shpak/hugo-book
     
   <nav id="TableOfContents">
   <ul>
+    <li><a href="#intro">Intro</a></li>
     <li><a href="#step-0-baseline-cli-gstreamer-pipeline">Step 0: Baseline CLI Gstreamer pipeline</a></li>
     <li><a href="#step-1-get-frames-into-python">Step 1: Get frames into Python</a></li>
     <li><a href="#step-2-get-frames-into-pytorch">Step 2: Get frames into Pytorch</a></li>
@@ -159,6 +160,10 @@ https://github.com/alex-shpak/hugo-book
   A Simple and Flexible Pytorch Video Pipeline
   <a class="anchor" href="#a-simple-and-flexible-pytorch-video-pipeline">#</a>
 </h1>
+<h2 id="intro">
+  Intro
+  <a class="anchor" href="#intro">#</a>
+</h2>
 <p>Taking machine learning models into production for video analytics doesn&rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: <a href="https://gstreamer.freedesktop.org/">Gstreamer</a> and <a href="https://pytorch.org">Pytorch</a>.</p>
 <p>Performance is out of scope for this first step, but we&rsquo;ll do a deep dive in a later article. Worthwhile throughput improvements are possible with a little effort. We&rsquo;ll also ignore black-box serving toolkits (Nvidia Triton/TensorRT, Kubeflow, TorchServe etc.) so we can understand what&rsquo;s happening end to end.</p>
 <p>The main library we&rsquo;ll be using is <a href="https://gstreamer.freedesktop.org/">Gstreamer</a>, a very flexible and efficient media-processing pipeline that comes with a huge ecosystem of components. In principle these components can be seamlessly swapped out to support different codecs, transformations and outputs but in practice constructing a Gstreamer pipeline can be a tricky process with a lot of iteration.</p>
@@ -498,6 +503,7 @@ Besides the code, the repo contains a Dockerfile and top-level Makefile to make 
       
   <nav id="TableOfContents">
   <ul>
+    <li><a href="#intro">Intro</a></li>
     <li><a href="#step-0-baseline-cli-gstreamer-pipeline">Step 0: Baseline CLI Gstreamer pipeline</a></li>
     <li><a href="#step-1-get-frames-into-python">Step 1: Get frames into Python</a></li>
     <li><a href="#step-2-get-frames-into-pytorch">Step 2: Get frames into Pytorch</a></li>
