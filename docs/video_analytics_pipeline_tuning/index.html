@@ -10,13 +10,13 @@ This article is a practical deep dive into making a specific deep learning model
 <meta property="og:description" content="From 10 FPS to 650 FPS: Making Deep Learning Fast #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.
 This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming." />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="paulbridger.com/docs/video_analytics_pipeline_tuning/" />
+<meta property="og:url" content="https://paulbridger.com/docs/video_analytics_pipeline_tuning/" />
 <meta property="article:published_time" content="2020-08-23T08:43:23+02:00" />
 <meta property="article:modified_time" content="2020-08-23T08:43:23+02:00" />
 <title>From 10 FPS to 650 FPS: Making Deep Learning Fast | paulbridger.com</title>
-<link rel="manifest" href="/paulbridger.com/manifest.json">
-<link rel="icon" href="/paulbridger.com/favicon.png" type="image/x-icon">
-<link rel="stylesheet" href="/paulbridger.com/book.min.91028b48a67fc5617943c8dc17236b59e64a3c795f22aad952c461c055582264.css" integrity="sha256-kQKLSKZ/xWF5Q8jcFyNrWeZKPHlfIqrZUsRhwFVYImQ=">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="/book.min.91028b48a67fc5617943c8dc17236b59e64a3c795f22aad952c461c055582264.css" integrity="sha256-kQKLSKZ/xWF5Q8jcFyNrWeZKPHlfIqrZUsRhwFVYImQ=">
 <script type="application/javascript">
 var doNotTrack = false;
 if (!doNotTrack) {
@@ -43,7 +43,7 @@ https://github.com/alex-shpak/hugo-book
       
   <nav>
 <h2 class="book-brand">
-  <a href="/paulbridger.com"><span>paulbridger.com</span>
+  <a href="/"><span>paulbridger.com</span>
   </a>
 </h2>
 
@@ -74,7 +74,7 @@ https://github.com/alex-shpak/hugo-book
         <li>
           
   
-    <a href="paulbridger.com/docs/video_analytics_pytorch_pipeline/" class="">A Simple and Flexible Pytorch Video Pipeline</a>
+    <a href="/docs/video_analytics_pytorch_pipeline/" class="">A Simple and Flexible Pytorch Video Pipeline</a>
   
 
         </li>
@@ -84,7 +84,7 @@ https://github.com/alex-shpak/hugo-book
         <li>
           
   
-    <a href="paulbridger.com/docs/video_analytics_pipeline_tuning/" class="active">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
+    <a href="/docs/video_analytics_pipeline_tuning/" class="active">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
   
 
         </li>
@@ -123,14 +123,14 @@ https://github.com/alex-shpak/hugo-book
         
   <div class="flex align-center justify-between">
   <label for="menu-control">
-    <img src="/paulbridger.com/svg/menu.svg" class="book-icon" alt="Menu" />
+    <img src="/svg/menu.svg" class="book-icon" alt="Menu" />
   </label>
 
   <strong>From 10 FPS to 650 FPS: Making Deep Learning Fast</strong>
 
   <label for="toc-control">
     
-    <img src="/paulbridger.com/svg/toc.svg" class="book-icon" alt="Table of Contents" />
+    <img src="/svg/toc.svg" class="book-icon" alt="Table of Contents" />
     
   </label>
 </div>
@@ -248,9 +248,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_baseline_high_level.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_baseline_high_level.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_baseline_high_level_hu7ea67ed14e6f682d2580cb4b03ba3b9b_402896_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_baseline_high_level_hu7ea67ed14e6f682d2580cb4b03ba3b9b_402896_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -271,9 +271,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_frames.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_frames.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_frames_hu7ea67ed14e6f682d2580cb4b03ba3b9b_461248_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_frames_hu7ea67ed14e6f682d2580cb4b03ba3b9b_461248_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -289,9 +289,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_ms.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_ms.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_ms_hu7ea67ed14e6f682d2580cb4b03ba3b9b_346464_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_ms_hu7ea67ed14e6f682d2580cb4b03ba3b9b_346464_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -375,9 +375,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_1_two_frames.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_1_two_frames.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_1_two_frames_hu7ea67ed14e6f682d2580cb4b03ba3b9b_412902_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_1_two_frames_hu7ea67ed14e6f682d2580cb4b03ba3b9b_412902_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -454,9 +454,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_2_one_frame.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_2_one_frame.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_2_one_frame_hubc8a3a5243a718a61f93fae3e5c07254_434237_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_2_one_frame_hubc8a3a5243a718a61f93fae3e5c07254_434237_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -468,11 +468,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 125px;margin: 0 auto">
-    <canvas id="309"></canvas>
+    <canvas id="483"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('309').getContext('2d');
+    var ctx = document.getElementById('483').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -548,11 +548,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 150px;margin: 0 auto">
-    <canvas id="758"></canvas>
+    <canvas id="308"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('758').getContext('2d');
+    var ctx = document.getElementById('308').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -565,9 +565,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_batch_one_batch.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_batch_one_batch.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_batch_one_batch_hud3cb94600d29dd03fae6e963ecc4a3e6_454195_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_batch_one_batch_hud3cb94600d29dd03fae6e963ecc4a3e6_454195_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -593,11 +593,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 175px;margin: 0 auto">
-    <canvas id="85"></canvas>
+    <canvas id="832"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('85').getContext('2d');
+    var ctx = document.getElementById('832').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -615,9 +615,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_fp16_one_batch.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_fp16_one_batch.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_fp16_one_batch_hud3cb94600d29dd03fae6e963ecc4a3e6_454549_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_fp16_one_batch_hud3cb94600d29dd03fae6e963ecc4a3e6_454549_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -629,7 +629,7 @@ https://github.com/alex-shpak/hugo-book
   <a class="anchor" href="#stage-5-decode-video-direct-to-device">#</a>
 </h2>
 <p>Those large host/device memory transfers are due to the inability of Gstreamer to directly give us Pytorch tensors sitting on the GPU ready for processing. If you look closely at the 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_fp16.pipeline.dot.png">Gstreamer pipeline</a>
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_fp16.pipeline.dot.png">Gstreamer pipeline</a>
 
  you&rsquo;ll see that the <code>nvv4l2decoder</code> element is passing <code>video/x-raw(memory:NVMM)</code> buffers downstream — this tells us that the video frames are being decoded using the GPU. The pipeline then explicitly transfers this GPU memory to host using the <code>nvvideoconvert</code> element (note the lack of <code>(memory:NVMM)</code> on the highlighted line):</p>
 
@@ -793,9 +793,9 @@ https://github.com/alex-shpak/hugo-book
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_dtod_one_batch.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_dtod_one_batch.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_dtod_one_batch_hua07c1e3946c7bea11abe62fc8ebb62bc_414206_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_dtod_one_batch_hua07c1e3946c7bea11abe62fc8ebb62bc_414206_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
@@ -808,11 +808,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 200px;margin: 0 auto">
-    <canvas id="141"></canvas>
+    <canvas id="39"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('141').getContext('2d');
+    var ctx = document.getElementById('39').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -849,11 +849,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 250px;margin: 0 auto">
-    <canvas id="852"></canvas>
+    <canvas id="605"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('852').getContext('2d');
+    var ctx = document.getElementById('605').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -866,9 +866,9 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 
-<a href="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_concurrency_two_batches.png">
+<a href="/docs/video_analytics_pipeline_tuning/images/tuning_concurrency_two_batches.png">
     <figure style="margin: 2rem 0">
-        <img style="max-width: 100%; width: auto; height: auto;" src="/paulbridger.com/docs/video_analytics_pipeline_tuning/images/tuning_concurrency_two_batches_hu1febb2df32772a0749056f1c019647d7_403772_896x520_fill_box_top_2.png" width="896" height="520">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/docs/video_analytics_pipeline_tuning/images/tuning_concurrency_two_batches_hu1febb2df32772a0749056f1c019647d7_403772_896x520_fill_box_top_2.png" width="896" height="520">
         <figcaption><small></small></figcaption>
     </figure>
 </a>
