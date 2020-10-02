@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en" dir=>
+
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.
+This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming.">
+<meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="From 10 FPS to 650 FPS: Making Deep Learning Fast" />
+<meta property="og:description" content="Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.
+This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="pbridger.github.io/docs/video_analytics_pipeline_tuning/" />
+<meta property="article:published_time" content="2020-08-23T08:43:23+02:00" />
+<meta property="article:modified_time" content="2020-08-23T08:43:23+02:00" />
+<title>From 10 FPS to 650 FPS: Making Deep Learning Fast | paulbridger.com</title>
+<link rel="manifest" href="/pbridger.github.io/manifest.json">
+<link rel="icon" href="/pbridger.github.io/favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="/pbridger.github.io/book.min.91028b48a67fc5617943c8dc17236b59e64a3c795f22aad952c461c055582264.css" integrity="sha256-kQKLSKZ/xWF5Q8jcFyNrWeZKPHlfIqrZUsRhwFVYImQ=">
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'UA-XXXXXXXXX-X', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+<!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+  
+</head>
+
+<body dir=>
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    <aside class="book-menu">
+      
+  <nav>
+<h2 class="book-brand">
+  <a href="/pbridger.github.io"><span>paulbridger.com</span>
+  </a>
+</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  
+  
+  
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+    <a href="pbridger.github.io/docs/video_analytics_pytorch_pipeline/" class="">A Simple and Flexible Pytorch Video Pipeline</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+    <a href="pbridger.github.io/docs/video_analytics_pipeline_tuning/" class="active">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
+  
+
+        </li>
+      
+    
+  </ul>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var menu=document.querySelector("aside.book-menu nav");addEventListener("beforeunload",function(event){localStorage.setItem("menu.scrollTop",menu.scrollTop);});menu.scrollTop=localStorage.getItem("menu.scrollTop");})();</script>
+
+
+ 
+    </aside>
+
+    <div class="book-page">
+      <header class="book-header">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/pbridger.github.io/svg/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <strong>From 10 FPS to 650 FPS: Making Deep Learning Fast</strong>
+
+  <label for="toc-control">
+    
+    <img src="/pbridger.github.io/svg/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#intro">Intro</a>
+      <ul>
+        <li><a href="#how-far-can-we-push-a-python-based-inference-pipeline">How Far Can We Push a Python-based Inference Pipeline?</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-0-pytorch-hub-baseline">Stage 0: PyTorch Hub Baseline</a>
+      <ul>
+        <li><a href="#tracing-with-nvidia-nsight-systems">Tracing with Nvidia Nsight Systems</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-1-fix-fine-grained-synchronization">Stage 1: Fix Fine-Grained Synchronization</a></li>
+    <li><a href="#stage-2-postprocessing-on-gpu">Stage 2: Postprocessing on GPU</a></li>
+    <li><a href="#stage-3-batch-processing">Stage 3: Batch Processing</a></li>
+    <li><a href="#stage-4-half-precision-inference-on-tensor-cores">Stage 4: Half-Precision Inference on Tensor Cores</a></li>
+    <li><a href="#stage-5-decode-video-direct-to-device">Stage 5: Decode Video Direct to Device</a></li>
+    <li><a href="#stage-6-concurrency">Stage 6: Concurrency</a></li>
+  </ul>
+</nav>
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown"><h2 id="intro">
+  Intro
+  <a class="anchor" href="#intro">#</a>
+</h2>
+<p>Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.</p>
+<p>This article is a practical deep dive into making a specific deep learning model (<a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">Nvidia&rsquo;s SSD300</a>) run fast on a powerful GPU server, but the general principles apply to all GPU programming. The SSD300 is an object-detection model trained on COCO, so output will be bounding boxes with probabilities for 81 classes of object.</p>
+<p>Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement.</p>
+<h3 id="how-far-can-we-push-a-python-based-inference-pipeline">
+  How Far Can We Push a Python-based Inference Pipeline?
+  <a class="anchor" href="#how-far-can-we-push-a-python-based-inference-pipeline">#</a>
+</h3>
+<p>Part of the point of this article is to see what throughput we can get without leaving behind the flexibility of Python or the familiarity of the library the model was created with. We will not go super deep into custom CUDA kernels or use a standard &ldquo;serving&rdquo; framework because we will find many large optimizations available at a high level. We&rsquo;ll start from a naively implemented simple video inference pipeline, following on from my introductory <a href="/posts/video_analytics_pytorch_pipeline">Pytorch Video Pipeline</a> article.</p>
+<p>Sample code is in the same repo: <a href="https://github.com/pbridger/pytorch-video-pipeline">https://github.com/pbridger/pytorch-video-pipeline</a>.</p>
+<h2 id="stage-0-pytorch-hub-baseline">
+  Stage 0: PyTorch Hub Baseline
+  <a class="anchor" href="#stage-0-pytorch-hub-baseline">#</a>
+</h2>
+<p>The baseline version of the code (<a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_baseline.py">tuning_baseline.py</a>) will use the postprocessing functions in the <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">SSD300</a> repo as per the <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">PyTorch Hub page</a>. The implementers of this model do not pretend this sample code is production ready and we will find many ways to improve it. In fact, the published <a href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Detection/SSD#inference-performance-results">benchmarking results</a> for this model do not run the postprocessing code at all.</p>
+<p>Top-level per-frame processing logic looks like this:</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">on_frame_probe</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">frames_processed</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">start_time</span> <span class="ow">or</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;on_frame_probe&#39;</span><span class="p">):</span>
+        <span class="n">buf</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">()</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;[{buf.pts / Gst.SECOND:6.2f}]&#39;</span><span class="p">)</span>
+
+<span class="hl">        <span class="n">image_tensor</span> <span class="o">=</span> <span class="n">buffer_to_image_tensor</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">pad</span><span class="o">.</span><span class="n">get_current_caps</span><span class="p">())</span>
+</span><span class="hl">        <span class="n">image_batch</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">image_tensor</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+</span>        <span class="n">frames_processed</span> <span class="o">+=</span> <span class="n">image_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;inference&#39;</span><span class="p">):</span>
+<span class="hl">                <span class="n">locs</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">detector</span><span class="p">(</span><span class="n">image_batch</span><span class="p">)</span>
+</span><span class="hl">            <span class="n">postprocess</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+</span>
+        <span class="k">return</span> <span class="n">Gst</span><span class="o">.</span><span class="n">PadProbeReturn</span><span class="o">.</span><span class="n">OK</span>
+</code></pre></div>
+
+<p>The important parts are highlighted above:</p>
+<ol>
+<li><code>buffer_to_image_tensor</code> converts Gstreamer buffers (decoded from video frames) into Pytorch tensors.</li>
+<li><code>preprocess</code> turns the 0 to 255 integral RGB pixel values into scaled -1.0 to +1.0 float values.</li>
+<li><code>detector(image_batch)</code> runs the SSD300 model, and it&rsquo;s important to note that the model and input tensor are on a CUDA device (GPU) at this point.</li>
+<li><code>postprocess</code> turns model output into bounding boxes and scores for each class label.</li>
+</ol>
+<p>We will dig into these functions later, for now let&rsquo;s examine baseline performance.</p>
+<h3 id="tracing-with-nvidia-nsight-systems">
+  Tracing with Nvidia Nsight Systems
+  <a class="anchor" href="#tracing-with-nvidia-nsight-systems">#</a>
+</h3>
+<p><a href="https://developer.nvidia.com/nsight-systems">Nsight Systems</a> is a great tool to help with high-level GPU tuning. It shows CPU/GPU resource utilization, and is able to trace OS system calls, CUDA, CuDNN, CuBLAS, NVTX and even some technologies we don&rsquo;t care about.</p>
+<p>NVTX is an important API we&rsquo;ll use for instrumenting regions and events in our code — this will be allow us to map traced utilization patterns to logic in the code.</p>
+<p>Having run the baseline video pipeline with tracing enabled, opening Nsight Systems shows around 40 seconds of activity decoding and processing the video file (click for full resolution):</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_baseline_high_level.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_baseline_high_level_hu7ea67ed14e6f682d2580cb4b03ba3b9b_402896_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>As you can see, there is plenty of information. Nsight Systems shows:</p>
+<ul>
+<li>Resource utilization over time aggregated by hardware device (different CPUs and GPUs).</li>
+<li>Resource utilization over time aggregated into processes and threads.</li>
+<li>Call duration for numerous toolkits, including OS calls and the custom NVTX ranges I&rsquo;ve put in our code. These will become clear as we zoom in.</li>
+</ul>
+<p>I&rsquo;ve added annotations for some problems that are clear even at this very high level. CPU usage is high, GPU usage is low, and there are a lot of memory transfers between host (system memory) and device (GPU memory).</p>
+<p>Let&rsquo;s drill in to show processing for a couple of frames. Note the NTVX ranges in grey corresponding to logical parts of the code:</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_frames.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_frames_hu7ea67ed14e6f682d2580cb4b03ba3b9b_461248_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Postprocessing taking &gt;90% of elapsed time is a disaster — from a high-level this is the first thing to fix, but what is causing it?</p>
+<p>During postprocessing we can see that CPU usage is very high, GPU usage is very low (but not 0%), and there are constant memory transfers from device to host. The most likely scenario is that the postprocessing is largely being done on CPU, but it is constantly pulling small pieces of data from the GPU required for the processing.</p>
+<p>Let&rsquo;s drill in to show activity for a couple of milliseconds:</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_ms.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_baseline_two_ms_hu7ea67ed14e6f682d2580cb4b03ba3b9b_346464_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Looking at the CUDA API timeline, we can see a lot of memory transfers and the green synchronization around them. The CUDA synchronization calls are further evidence that this postprocessing is being done partly on CPU and partly on GPU and is synchronized in very fine-grained fashion. Let&rsquo;s fix it.</p>
+<p>Here is the baseline postprocessing code:</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">postprocess</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;postprocess&#39;</span><span class="p">):</span>
+<span class="hl">        <span class="n">results_batch</span> <span class="o">=</span> <span class="n">ssd_utils</span><span class="o">.</span><span class="n">decode_results</span><span class="p">((</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>
+</span>        <span class="n">results_batch</span> <span class="o">=</span> <span class="p">[</span><span class="n">ssd_utils</span><span class="o">.</span><span class="n">pick_best</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">detection_threshold</span><span class="p">)</span> <span class="k">for</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">results_batch</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">bboxes</span><span class="p">,</span> <span class="n">classes</span><span class="p">,</span> <span class="n">scores</span> <span class="ow">in</span> <span class="n">results_batch</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">scores</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="n">bboxes</span><span class="p">,</span> <span class="n">classes</span><span class="p">,</span> <span class="n">scores</span><span class="p">)</span>
+</code></pre></div>
+
+<p>At the point of the highlighted line, the arguments <code>locs</code> and <code>labels</code> are tensors on the GPU (these are returned directly from the SSD300 inference). The <code>decode_results</code> code is accessing the tensors elementwise and doing work on CPU, causing the repeated fine-grained requests for data to be sent from GPU to system memory.</p>
+<p>The initial fix is super simple — we will send these entire tensors to system memory in a single operation.</p>
+<h2 id="stage-1-fix-fine-grained-synchronization">
+  Stage 1: Fix Fine-Grained Synchronization
+  <a class="anchor" href="#stage-1-fix-fine-grained-synchronization">#</a>
+</h2>
+<p>The updated code (<a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_1.py">tuning_postprocess_1.py</a>) looks like this:</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">postprocess</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;postprocess&#39;</span><span class="p">):</span>
+<span class="hl">        <span class="n">results_batch</span> <span class="o">=</span> <span class="n">ssd_utils</span><span class="o">.</span><span class="n">decode_results</span><span class="p">((</span><span class="n">locs</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">labels</span><span class="o">.</span><span class="n">cpu</span><span class="p">()))</span>
+</span>        <span class="n">results_batch</span> <span class="o">=</span> <span class="p">[</span><span class="n">ssd_utils</span><span class="o">.</span><span class="n">pick_best</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">detection_threshold</span><span class="p">)</span> <span class="k">for</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">results_batch</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">bboxes</span><span class="p">,</span> <span class="n">classes</span><span class="p">,</span> <span class="n">scores</span> <span class="ow">in</span> <span class="n">results_batch</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">scores</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="n">bboxes</span><span class="p">,</span> <span class="n">classes</span><span class="p">,</span> <span class="n">scores</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Running the baseline code without tracing enabled gave us 9 FPS throughput and this improved code runs at just under 16 FPS. A 78% improvement is not bad for just typing <code>.cpu()</code> twice. This leads to a good rule of thumb for GPU programming:</p>
+<blockquote class="book-hint info">
+  <p><strong>Avoid Fine-Grained Synchronization</strong></p>
+<p>Your host (CPU) code is dispatching work to an incredibly powerful co-processor which can do complex work asynchronously. However, host/device communication latency and synchronization are costly — try to dispatch large chunks of work and avoid fine-grained memory transfers.</p>
+
+</blockquote>
+
+<p>The updated Nsight Systems view showing processing for two frames (below) has a clear difference. Instead of a constant stream of small transfers from device to host we now see one large transfer at the start of the postprocessing phase.</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_1_two_frames.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_1_two_frames_hu7ea67ed14e6f682d2580cb4b03ba3b9b_412902_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Postprocessing still takes over 80% of frame-processing time and the process is still heavily CPU bottlenecked. What if we could do the postprocessing using the GPU?</p>
+<h2 id="stage-2-postprocessing-on-gpu">
+  Stage 2: Postprocessing on GPU
+  <a class="anchor" href="#stage-2-postprocessing-on-gpu">#</a>
+</h2>
+<p>Turning preprocessing and postprocessing into heavily vectorized GPU code can be tricky for some models but is one of the highest-impact performance improvements you can make. I&rsquo;ve added around 100 lines of code to do this for the SSD model — check out <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_2.py">tuning_postprocess_2.py</a> for all the details.</p>
+<p>Here is the new top-level postprocessing code:</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">postprocess</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;postprocess&#39;</span><span class="p">):</span>
+        <span class="n">locs</span><span class="p">,</span> <span class="n">probs</span> <span class="o">=</span> <span class="n">xywh_to_xyxy</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+
+        <span class="c1"># flatten batch and classes</span>
+        <span class="n">batch_dim</span><span class="p">,</span> <span class="n">box_dim</span><span class="p">,</span> <span class="n">class_dim</span> <span class="o">=</span> <span class="n">probs</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+        <span class="n">flat_locs</span> <span class="o">=</span> <span class="n">locs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">class_dim</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">flat_probs</span> <span class="o">=</span> <span class="n">probs</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">class_indexes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">class_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">batch_dim</span> <span class="o">*</span> <span class="n">box_dim</span><span class="p">)</span>
+        <span class="n">image_indexes</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">box_dim</span> <span class="o">*</span> <span class="n">class_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">batch_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># only do NMS on detections over threshold, and ignore background (0)</span>
+        <span class="n">threshold_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">flat_probs</span> <span class="o">&gt;</span> <span class="n">detection_threshold</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">class_indexes</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">flat_locs</span> <span class="o">=</span> <span class="n">flat_locs</span><span class="p">[</span><span class="n">threshold_mask</span><span class="p">]</span>
+        <span class="n">flat_probs</span> <span class="o">=</span> <span class="n">flat_probs</span><span class="p">[</span><span class="n">threshold_mask</span><span class="p">]</span>
+        <span class="n">class_indexes</span> <span class="o">=</span> <span class="n">class_indexes</span><span class="p">[</span><span class="n">threshold_mask</span><span class="p">]</span>
+        <span class="n">image_indexes</span> <span class="o">=</span> <span class="n">image_indexes</span><span class="p">[</span><span class="n">threshold_mask</span><span class="p">]</span>
+
+        <span class="n">nms_mask</span> <span class="o">=</span> <span class="n">torchvision</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">boxes</span><span class="o">.</span><span class="n">batched_nms</span><span class="p">(</span>
+            <span class="n">flat_locs</span><span class="p">,</span>
+            <span class="n">flat_probs</span><span class="p">,</span>
+            <span class="n">class_indexes</span> <span class="o">*</span> <span class="n">image_indexes</span><span class="p">,</span>
+            <span class="n">iou_threshold</span><span class="o">=</span><span class="mf">0.7</span>
+        <span class="p">)</span>
+
+        <span class="n">bboxes</span> <span class="o">=</span> <span class="n">flat_locs</span><span class="p">[</span><span class="n">nms_mask</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="n">probs</span> <span class="o">=</span> <span class="n">flat_probs</span><span class="p">[</span><span class="n">nms_mask</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="n">class_indexes</span> <span class="o">=</span> <span class="n">class_indexes</span><span class="p">[</span><span class="n">nms_mask</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">bboxes</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">bboxes</span><span class="p">,</span> <span class="n">class_indexes</span><span class="p">,</span> <span class="n">probs</span><span class="p">)</span></code></pre></div>
+
+<p>If the above code is hard to understand that&rsquo;s awesome, because it took me quite some effort to learn how to do this.</p>
+<p>Going through the code in detail is beyond the scope of this article, but the general flow is:</p>
+<ol>
+<li>Flatten almost all tensor dimensions.</li>
+<li>Apply probability thresholding and ignore the background class with a mask.</li>
+<li>Do a batched non-max suppression (NMS) on all detections, using indices to ensure the NMS isn&rsquo;t applied across classes or images. Importantly, this is all happening with tensors and operations on the GPU.</li>
+</ol>
+<p>Now let&rsquo;s see the new Nsight Systems output zoomed to the frame level:</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_2_one_frame.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_postprocess_2_one_frame_hubc8a3a5243a718a61f93fae3e5c07254_434237_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Postprocessing for a single frame has gone from around 54 ms on CPU to under 3 ms on the GPU. Measuring throughput without tracing overhead we are now getting around 80 FPS, up from 16 FPS with postprocessing on CPU. That&rsquo;s a 400% improvement to frame-processing throughput and shows the ridiculous power of modern GPUs.</p>
+
+
+
+
+
+<div style="width: 100%;height: 125px;margin: 0 auto">
+    <canvas id="949"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('949').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>This leads to another rule of thumb:</p>
+<blockquote class="book-hint info">
+  <p><strong>Do Heavy Numerical Work on the GPU</strong></p>
+<p>If it is possible to vectorize code and dispatch large chunks of numerical work to the GPU, it will almost always be worth it.</p>
+
+</blockquote>
+
+<h2 id="stage-3-batch-processing">
+  Stage 3: Batch Processing
+  <a class="anchor" href="#stage-3-batch-processing">#</a>
+</h2>
+<p>Looking at the above trace output the most tantalizing observation is that GPU utilization is quite low during the inference phase. This inference is a series of CUDA kernels submitted by the host (CPU) to the device (GPU) — the GPU is doing all the real work but still the host <em>cannot keep up</em>.</p>
+<p>One very easy way to increase the amount of work sent to the GPU is by sending multiple frames through the neural network at once — batch processing.</p>
+<p>In this simplistic implementation only the top-level per-frame code changes. Frame tensors are accumulated into a list and when the list reaches the <code>batch_size</code> we do the preprocessing, inference and postprocessing on the entire batch at once. I&rsquo;ve also changed the NVTX ranges so we can track the accumulation of the batch. See the full updated source here: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_batch.py">tuning_batch.py</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">on_frame_probe</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">frames_processed</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">start_time</span> <span class="ow">or</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="k">global</span> <span class="n">image_batch</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">image_batch</span><span class="p">:</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">nvtx</span><span class="o">.</span><span class="n">range_push</span><span class="p">(</span><span class="s1">&#39;batch&#39;</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">nvtx</span><span class="o">.</span><span class="n">range_push</span><span class="p">(</span><span class="s1">&#39;create_batch&#39;</span><span class="p">)</span>
+
+    <span class="n">buf</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">()</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;[{buf.pts / Gst.SECOND:6.2f}]&#39;</span><span class="p">)</span>
+
+    <span class="n">image_tensor</span> <span class="o">=</span> <span class="n">buffer_to_image_tensor</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">pad</span><span class="o">.</span><span class="n">get_current_caps</span><span class="p">())</span>
+<span class="hl">    <span class="n">image_batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image_tensor</span><span class="p">)</span>
+</span>
+<span class="hl">    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">image_batch</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">batch_size</span><span class="p">:</span>
+</span><span class="hl">        <span class="k">return</span> <span class="n">Gst</span><span class="o">.</span><span class="n">PadProbeReturn</span><span class="o">.</span><span class="n">OK</span>
+</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">nvtx</span><span class="o">.</span><span class="n">range_pop</span><span class="p">()</span> <span class="c1"># create_batch</span>
+
+    <span class="n">image_batch</span> <span class="o">=</span> <span class="n">preprocess</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">image_batch</span><span class="p">))</span>
+    <span class="n">frames_processed</span> <span class="o">+=</span> <span class="n">image_batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;inference&#39;</span><span class="p">):</span>
+            <span class="n">locs</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">detector</span><span class="p">(</span><span class="n">image_batch</span><span class="p">)</span>
+            <span class="n">image_batch</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">postprocess</span><span class="p">(</span><span class="n">locs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+
+    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">nvtx</span><span class="o">.</span><span class="n">range_pop</span><span class="p">()</span> <span class="c1"># batch</span>
+    <span class="k">return</span> <span class="n">Gst</span><span class="o">.</span><span class="n">PadProbeReturn</span><span class="o">.</span><span class="n">OK</span></code></pre></div>
+
+<p>With this simple change (using a batch-size of 4) throughput jumps from 80 FPS to around 125 FPS (a 56% improvement).</p>
+
+
+
+
+
+<div style="width: 100%;height: 150px;margin: 0 auto">
+    <canvas id="374"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('374').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>Let&rsquo;s check Nsight Systems:</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_batch_one_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_batch_one_batch_hud3cb94600d29dd03fae6e963ecc4a3e6_454195_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Inference time has approximately doubled, which is a good deal since we&rsquo;re processing 4x more frames. This gives a rule of thumb which is a special case of the earlier &ldquo;send large chunks of work&rdquo; idea, but it deserves to be highlighted:</p>
+<blockquote class="book-hint info">
+  <p><strong>Do Batched Inference Where Possible</strong></p>
+<p>Send batched inputs for preprocessing, inference and postprocessing unless you really can&rsquo;t afford the trade-off for increased latency.</p>
+
+</blockquote>
+
+<p>The GPU is now fully utilized during inference (finally) but is entirely idle while we accumulate frames into the batch. We will fix that soon but first we will enable another quick win — half-precision inference using the tensor cores in Volta, Turing, and later hardware from Nvidia.</p>
+<h2 id="stage-4-half-precision-inference-on-tensor-cores">
+  Stage 4: Half-Precision Inference on Tensor Cores
+  <a class="anchor" href="#stage-4-half-precision-inference-on-tensor-cores">#</a>
+</h2>
+<p>One of the reasons I picked <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">Nvidia&rsquo;s SSD300</a> model for this article is because Nvidia provides both float32 and half-precision float16 pre-trained versions. Prior to Pytorch 1.6 the best way to train a mixed precision model was to use <a href="https://github.com/NVIDIA/apex">Nvidia&rsquo;s Apex library</a> which makes it easy to store and train model weights with float16 precision while accumulating gradients in float32 tensors. In Pytorch &gt;= 1.6 this support is <a href="https://pytorch.org/docs/stable/notes/amp_examples.html">built-in</a>.</p>
+<p>For our purposes the only code change required is to 1) load a different version of the model from Torch Hub, and 2) ensure tensors sent for inference are float16 not float32. Full updated source is here: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_fp16.py">tuning_fp16.py</a>. I&rsquo;ve also increased batch-size from 4 to 8 in this iteration in order to maintain &gt;95% GPU utilisation during inference.</p>
+<p>When run without tracing overhead throughput has improved from 125 FPS to 185 FPS. Another essentially free ~50% increase in throughput thanks to the tensor cores.</p>
+
+
+
+
+
+<div style="width: 100%;height: 175px;margin: 0 auto">
+    <canvas id="919"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('919').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<blockquote class="book-hint info">
+  <p><strong>Use Tensor Cores Where Possible</strong></p>
+<p>More generally — know and take advantage of the special capabilities of your hardware. <a href="https://images.nvidia.com/content/volta-architecture/pdf/volta-architecture-whitepaper.pdf">Volta</a> gave us faster fp16 multiply-add, <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/technologies/turing-architecture/NVIDIA-Turing-Architecture-Whitepaper.pdf">Turing</a> gave us int4 and int8 for quantized inference, and <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/geforce/ampere/pdf/NVIDIA-ampere-GA102-GPU-Architecture-Whitepaper-V1.pdf">Ampere</a> brings accelerated sparse compute as well as tf32 and bfloat16 capabilities.</p>
+
+</blockquote>
+
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_fp16_one_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_fp16_one_batch_hud3cb94600d29dd03fae6e963ecc4a3e6_454549_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>This Nsight Systems per-batch view looks remarkably similar to the previous one. Batch processing time has gone from ~30 ms to ~40 ms but we&rsquo;re now processing 8 frames per batch rather than 4.</p>
+<p>Looking more closely we can see the inference and postprocessing times have barely changed while doubling the size of the batch. The batch creation phase is now very obviously limiting our throughput — the GPU is essentially idle and we have some large host/device memory transfers. It&rsquo;s time to fix that.</p>
+<h2 id="stage-5-decode-video-direct-to-device">
+  Stage 5: Decode Video Direct to Device
+  <a class="anchor" href="#stage-5-decode-video-direct-to-device">#</a>
+</h2>
+<p>Those large host/device memory transfers are due to the inability of Gstreamer to directly give us Pytorch tensors sitting on the GPU ready for processing. If you look closely at the 
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_fp16.pipeline.dot.png">Gstreamer pipeline</a>
+
+ you&rsquo;ll see that the <code>nvv4l2decoder</code> element is passing <code>video/x-raw(memory:NVMM)</code> buffers downstream — this tells us that the video frames are being decoded using the GPU. The pipeline then explicitly transfers this GPU memory to host using the <code>nvvideoconvert</code> element (note the lack of <code>(memory:NVMM)</code> on the highlighted line):</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">Gst</span><span class="o">.</span><span class="n">parse_launch</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;&#39;&#39;
+</span><span class="s1">    filesrc location=media/in.mp4 num-buffers=256 !
+</span><span class="s1">    decodebin !
+</span><span class="s1">    nvvideoconvert !
+</span><span class="hl"><span class="s1">    video/x-raw,format={frame_format} !
+</span></span><span class="s1">    fakesink name=s
+</span><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>This allows Gstreamer to put the decoded frame contents into a regular (host) buffer in the pipeline and we then transfer the buffer back onto the GPU during preprocessing. This is a huge waste of time, and it would be a lot faster if the frames could stay on the GPU end to end.</p>
+<p>What if we just keep the memory on GPU throughout the pipeline? It would look like this:</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">Gst</span><span class="o">.</span><span class="n">parse_launch</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;&#39;&#39;
+</span><span class="s1">    filesrc location=media/in.mp4 num-buffers=256 !
+</span><span class="s1">    decodebin !
+</span><span class="s1">    nvvideoconvert !
+</span><span class="hl"><span class="s1">    video/x-raw(memory:NVMM),format={frame_format} !
+</span></span><span class="s1">    fakesink name=s
+</span><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Our frame probe has been added to the buffer sink of the final (<code>fakesink</code>) element so it will now be called with buffers that represent memory on the GPU. But what does such a buffer look like? Well, instead of the buffer containing the pixels of the decoded frame the buffer contains a C structure — an <a href="https://docs.nvidia.com/metropolis/deepstream/4.0/dev-guide/DeepStream_Development_Guide/baggage/structNvBufSurface.html">NvBufSurface</a>.</p>
+<p>The NvBufSurface can be used to find out the GPU memory address of the decoded buffer as well as frame characteristics like size and pixel format. These details allow us to copy this GPU memory directly into a Pytorch tensor. This is a device-to-device memory transfer and will be extremely fast.</p>
+<p>The old, boring <code>buffer_to_image_tensor</code> code looks like this:</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">buffer_to_image_tensor</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">caps</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;buffer_to_image_tensor&#39;</span><span class="p">):</span>
+        <span class="n">caps_structure</span> <span class="o">=</span> <span class="n">caps</span><span class="o">.</span><span class="n">get_structure</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">caps_structure</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="s1">&#39;height&#39;</span><span class="p">),</span> <span class="n">caps_structure</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="s1">&#39;width&#39;</span><span class="p">)</span>
+
+        <span class="n">is_mapped</span><span class="p">,</span> <span class="n">map_info</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">Gst</span><span class="o">.</span><span class="n">MapFlags</span><span class="o">.</span><span class="n">READ</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_mapped</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">image_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">pixel_bytes</span><span class="p">),</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span>
+                    <span class="nb">buffer</span><span class="o">=</span><span class="n">map_info</span><span class="o">.</span><span class="n">data</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span>
+                    <span class="n">image_array</span><span class="p">[:,:,:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="c1"># RGBA -&gt; RGB, and extend lifetime beyond subsequent unmap</span>
+                <span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">buf</span><span class="o">.</span><span class="n">unmap</span><span class="p">(</span><span class="n">map_info</span><span class="p">)</span></code></pre></div>
+
+<p>We need to change this to interpret the Gstreamer buffer as an NvBufSurface C struct. Nvidia provides a Python library for dealing with these structures called <a href="https://docs.nvidia.com/metropolis/deepstream/python-api/index.html">nvds</a> but it has two major problems:</p>
+<ol>
+<li>It tends to be available only for woefully old versions of Python — annoying.</li>
+<li>It doesn&rsquo;t provide a way to avoid the GPU-to-Host buffer copy — useless for our purposes.</li>
+</ol>
+<p>I&rsquo;ve created a minimal <code>ctypes</code>-based module which interacts with <code>libnvbufsurface.so</code> and does what we want: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/ghetto_nvds.py">ghetto_nvds.py</a></p>
+<p>The updated high-level <code>buffer_to_image_tensor</code> code takes a few steps to do one thing — copy the NvBufSurface to a matching NvBufSurface where the destination data pointer points to a pre-allocated Pytorch tensor.</p>
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+    
+
+
+<div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">buffer_to_image_tensor</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">caps</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">nvtx_range</span><span class="p">(</span><span class="s1">&#39;buffer_to_image_tensor&#39;</span><span class="p">):</span>
+        <span class="n">caps_structure</span> <span class="o">=</span> <span class="n">caps</span><span class="o">.</span><span class="n">get_structure</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">caps_structure</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="s1">&#39;height&#39;</span><span class="p">),</span> <span class="n">caps_structure</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="s1">&#39;width&#39;</span><span class="p">)</span>
+
+        <span class="n">is_mapped</span><span class="p">,</span> <span class="n">map_info</span> <span class="o">=</span> <span class="n">buf</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">Gst</span><span class="o">.</span><span class="n">MapFlags</span><span class="o">.</span><span class="n">READ</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_mapped</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">source_surface</span> <span class="o">=</span> <span class="n">ghetto_nvds</span><span class="o">.</span><span class="n">NvBufSurface</span><span class="p">(</span><span class="n">map_info</span><span class="p">)</span>
+                <span class="n">torch_surface</span> <span class="o">=</span> <span class="n">ghetto_nvds</span><span class="o">.</span><span class="n">NvBufSurface</span><span class="p">(</span><span class="n">map_info</span><span class="p">)</span>
+
+                <span class="n">dest_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">torch_surface</span><span class="o">.</span><span class="n">surfaceList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">height</span><span class="p">,</span> <span class="n">torch_surface</span><span class="o">.</span><span class="n">surfaceList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span>
+                    <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="p">)</span>
+
+                <span class="n">torch_surface</span><span class="o">.</span><span class="n">struct_copy_from</span><span class="p">(</span><span class="n">source_surface</span><span class="p">)</span>
+                <span class="k">assert</span><span class="p">(</span><span class="n">source_surface</span><span class="o">.</span><span class="n">numFilled</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">assert</span><span class="p">(</span><span class="n">source_surface</span><span class="o">.</span><span class="n">surfaceList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">colorFormat</span> <span class="o">==</span> <span class="mi">19</span><span class="p">)</span> <span class="c1"># RGBA</span>
+
+                <span class="c1"># make torch_surface map to dest_tensor memory</span>
+                <span class="n">torch_surface</span><span class="o">.</span><span class="n">surfaceList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dataPtr</span> <span class="o">=</span> <span class="n">dest_tensor</span><span class="o">.</span><span class="n">data_ptr</span><span class="p">()</span>
+
+                <span class="c1"># copy decoded GPU buffer (source_surface) into Pytorch tensor (torch_surface -&gt; dest_tensor)</span>
+                <span class="n">torch_surface</span><span class="o">.</span><span class="n">mem_copy_from</span><span class="p">(</span><span class="n">source_surface</span><span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">buf</span><span class="o">.</span><span class="n">unmap</span><span class="p">(</span><span class="n">map_info</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">dest_tensor</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span></code></pre></div>
+
+<p>The Nsight Systems view makes the value of this change clear:</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_dtod_one_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_dtod_one_batch_hua07c1e3946c7bea11abe62fc8ebb62bc_414206_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Previously, batch creation and preprocessing were around 30% of end-to-end batch processing time and with this change they drop to around 10%.
+Throughput is now up to 235 FPS from 185 FPS.</p>
+
+
+
+
+
+<div style="width: 100%;height: 200px;margin: 0 auto">
+    <canvas id="54"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('54').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<blockquote class="book-hint info">
+  <p><strong>Aspire to an End-to-End GPU Pipeline</strong></p>
+<p>Due to the costs of synchronization and host/device communciation latency a fully end-to-end GPU pipeline is a lot better than an 80% on-GPU pipeline.</p>
+
+</blockquote>
+
+<p>Nsight Systems still shows some puzzling device-to-host memory transfers during batch creation but drilling in reveals these are single byte transfers with no synchronization required — not a problem for now.</p>
+<h2 id="stage-6-concurrency">
+  Stage 6: Concurrency
+  <a class="anchor" href="#stage-6-concurrency">#</a>
+</h2>
+<p>So far our pipeline is highly serial at the batch-component level — postprocessing follows inference, which follows preprocessing, which follows batch creation. In order to get to full utilization while staying serial every component would need to individually reach full utilization. This would be a lot of work (bad).</p>
+<p>A shortcut is to introduce some concurrency so that multiple threads of execution with suboptimal utilization will add up to higher utilization at the system level. Here I will introduce concurrency at multiple levels in a single change, but each of these steps has been tested incrementally so as to avoid madness.</p>
+<p>The changes:</p>
+<ul>
+<li>Use system threads to separate:
+<ul>
+<li>Batch creation (which still has low GPU utilization) and,</li>
+<li>Preprocessing, inference and postprocessing.</li>
+</ul>
+</li>
+<li>Put all inference operations on a per-thread <a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#streams">CUDA stream</a>.</li>
+<li>Put frame batch creation on a dedicated <a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#streams">CUDA stream</a>.</li>
+<li>Use two GPUs for the preprocessing, inference and postprocessing.</li>
+</ul>
+<p>The code changes are too extensive to dig into, but check the source here: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_concurrency.py">tuning_concurrency.py</a></p>
+<p>The results are pretty great. Before adding these several levels of concurrency we were at 235 FPS. Now, with a single GPU we are seeing 350 FPS and 650 FPS running on two GPUs (with performance tracing disabled).</p>
+
+
+
+
+
+<div style="width: 100%;height: 250px;margin: 0 auto">
+    <canvas id="958"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('958').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>For once Nsight Systems doesn&rsquo;t immediately point the way forward:</p>
+
+
+
+
+
+
+
+
+<a href="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_concurrency_two_batches.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/pbridger.github.io/docs/video_analytics_pipeline_tuning/images/tuning_concurrency_two_batches_hu1febb2df32772a0749056f1c019647d7_403772_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>While hunting for the new bottleneck I found that the video decoding and tensor creation stage can operate at over 3000 FPS, so this is fine.</p>
+<p>On a hunch I decided to get a measure of the <a href="https://wiki.python.org/moin/GlobalInterpreterLock">Global Interpreter Lock</a> (GIL) load. If you are reading the code you&rsquo;ll know that we are doing almost no compute whatsoever within Python (and therefore spend as little time as possible within Python holding the GIL), but we do have multiple concurrent Python threads submitting streams of operations to the GPUs.</p>
+<p>Using a GIL sampling tool called <a href="https://github.com/chrisjbillington/gil_load">gil_load</a> I measured the GIL as being actively held over 45% of the time, and with processes waiting to acquire it over 30% of time. This seemed like a problem so I investigated the effect of adding spurious GIL-consuming threads (which just do <code>1 + 1</code> repeatedly). Even when adding a single thread designed to consume approximately 10% of GIL time the throughput is immediately reduced.</p>
+<p>We have come far enough, from 10 FPS to 650 FPS. The solution to Python&rsquo;s GIL problem is not some trick, it is to stop using Python.</p>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+
+
+
+
+</div>
+
+ 
+        
+      </footer>
+
+      
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+    <aside class="book-toc">
+      
+  <nav id="TableOfContents">
+  <ul>
+    <li><a href="#intro">Intro</a>
+      <ul>
+        <li><a href="#how-far-can-we-push-a-python-based-inference-pipeline">How Far Can We Push a Python-based Inference Pipeline?</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-0-pytorch-hub-baseline">Stage 0: PyTorch Hub Baseline</a>
+      <ul>
+        <li><a href="#tracing-with-nvidia-nsight-systems">Tracing with Nvidia Nsight Systems</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-1-fix-fine-grained-synchronization">Stage 1: Fix Fine-Grained Synchronization</a></li>
+    <li><a href="#stage-2-postprocessing-on-gpu">Stage 2: Postprocessing on GPU</a></li>
+    <li><a href="#stage-3-batch-processing">Stage 3: Batch Processing</a></li>
+    <li><a href="#stage-4-half-precision-inference-on-tensor-cores">Stage 4: Half-Precision Inference on Tensor Cores</a></li>
+    <li><a href="#stage-5-decode-video-direct-to-device">Stage 5: Decode Video Direct to Device</a></li>
+    <li><a href="#stage-6-concurrency">Stage 6: Concurrency</a></li>
+  </ul>
+</nav>
+
+ 
+    </aside>
+    
+  </main>
+
+  
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
