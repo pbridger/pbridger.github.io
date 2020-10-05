@@ -3,16 +3,39 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>https://paulbridger.com/posts/video_analytics_pytorch_pipeline/</loc>
+    <lastmod>2020-09-23T18:21:00+02:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://paulbridger.com/posts/video_analytics_pipeline_tuning/</loc>
+    <lastmod>2020-09-30T08:43:23+02:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://paulbridger.com/posts/about/</loc>
+    <lastmod>2020-09-23T01:14:00+02:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://paulbridger.com/</loc>
+    <lastmod>2020-09-30T08:43:23+02:00</lastmod>
     <priority>0</priority>
   </url>
   
   <url>
     <loc>https://paulbridger.com/categories/</loc>
+    <lastmod>2020-09-30T08:43:23+02:00</lastmod>
   </url>
   
   <url>
-    <loc>https://paulbridger.com/</loc>
+    <loc>https://paulbridger.com/posts/</loc>
+    <lastmod>2020-09-30T08:43:23+02:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://paulbridger.com/categories/video-analytics/</loc>
+    <lastmod>2020-09-30T08:43:23+02:00</lastmod>
   </url>
   
   <url>
