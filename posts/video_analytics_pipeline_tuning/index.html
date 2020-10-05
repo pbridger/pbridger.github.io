@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement.">
+<meta name="description" content="Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement. This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming.">
 <meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="Object Detection: from 9 FPS to 650 FPS in 6 steps" />
-<meta property="og:description" content="Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement." />
+<meta property="og:description" content="Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement. This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://paulbridger.com/posts/video_analytics_pipeline_tuning/" />
 <meta property="article:published_time" content="2020-09-30T08:43:23+02:00" />
@@ -205,13 +205,13 @@ https://github.com/alex-shpak/hugo-book
   <a class="anchor" href="#intro">#</a>
 </h2>
 <p>Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.</p>
-<p>This article is a practical deep dive into making a specific deep learning model (<a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">Nvidia&rsquo;s SSD300</a>) run fast on a powerful GPU server, but the general principles apply to all GPU programming. The SSD300 is an object-detection model trained on COCO, so output will be bounding boxes with probabilities for 81 classes of object.</p>
 <p>Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement.</p>
+<p>This article is a practical deep dive into making a specific deep learning model (<a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">Nvidia&rsquo;s SSD300</a>) run fast on a powerful GPU server, but the general principles apply to all GPU programming. The SSD300 is an object-detection model trained on COCO, so output will be bounding boxes with probabilities for 81 classes of object.</p>
 <h3 id="how-far-can-we-push-a-python-based-inference-pipeline">
   How Far Can We Push a Python-based Inference Pipeline?
   <a class="anchor" href="#how-far-can-we-push-a-python-based-inference-pipeline">#</a>
 </h3>
-<p>Part of the point of this article is to see what throughput we can get without leaving behind the flexibility of Python or the familiarity of the library the model was created with. We will not go super deep into custom CUDA kernels or use a standard &ldquo;serving&rdquo; framework because we will find many large optimizations available at a high level. We&rsquo;ll start from a naively implemented simple video inference pipeline, following on from my introductory <a href="/posts/video_analytics_pytorch_pipeline/">Pytorch Video Pipeline</a> article.</p>
+<p>Part of the point of this article is to see what throughput we can get without leaving behind the flexibility of Python or the familiarity of the library the model was created with (Pytorch). We will not go super deep into custom CUDA kernels or use a standard &ldquo;serving&rdquo; framework because we will find many large optimizations available at a high level. We&rsquo;ll start from a naively implemented simple video inference pipeline, following on from my introductory <a href="/posts/video_analytics_pytorch_pipeline/">Pytorch Video Pipeline</a> article.</p>
 <p>Sample code is here: <a href="https://github.com/pbridger/pytorch-video-pipeline">github.com/pbridger/pytorch-video-pipeline</a>.</p>
 <h2 id="stage-0-pytorch-hub-baseline">
   Stage 0: PyTorch Hub Baseline
@@ -566,11 +566,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 125px;margin: 0 auto">
-    <canvas id="79"></canvas>
+    <canvas id="231"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('79').getContext('2d');
+    var ctx = document.getElementById('231').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -668,11 +668,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 150px;margin: 0 auto">
-    <canvas id="945"></canvas>
+    <canvas id="438"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('945').getContext('2d');
+    var ctx = document.getElementById('438').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -735,11 +735,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 175px;margin: 0 auto">
-    <canvas id="152"></canvas>
+    <canvas id="763"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('152').getContext('2d');
+    var ctx = document.getElementById('763').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -972,11 +972,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 200px;margin: 0 auto">
-    <canvas id="738"></canvas>
+    <canvas id="242"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('738').getContext('2d');
+    var ctx = document.getElementById('242').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -1044,11 +1044,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 250px;margin: 0 auto">
-    <canvas id="369"></canvas>
+    <canvas id="29"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('369').getContext('2d');
+    var ctx = document.getElementById('29').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>

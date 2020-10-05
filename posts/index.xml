@@ -22,7 +22,7 @@
       <pubDate>Wed, 30 Sep 2020 08:43:23 +0200</pubDate>
       
       <guid>https://paulbridger.com/posts/video_analytics_pipeline_tuning/</guid>
-      <description>Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. This article is a practical deep dive into making a specific deep learning model (&lt;a href=&#34;https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/&#34;&gt;Nvidia&amp;rsquo;s SSD300&lt;/a&gt;) run fast on a powerful GPU server, but the general principles apply to all GPU programming. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement.</description>
+      <description>Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement. This article is a practical deep dive into making a specific deep learning model (&lt;a href=&#34;https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/&#34;&gt;Nvidia&amp;rsquo;s SSD300&lt;/a&gt;) run fast on a powerful GPU server, but the general principles apply to all GPU programming.</description>
     </item>
     
     <item>
