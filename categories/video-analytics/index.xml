@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>paulbridger.com</title>
-    <link>https://paulbridger.com/</link>
-    <description>Recent content on paulbridger.com</description>
+    <title>Video Analytics on paulbridger.com</title>
+    <link>https://paulbridger.com/categories/video-analytics/</link>
+    <description>Recent content in Video Analytics on paulbridger.com</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 30 Sep 2020 08:43:23 +0200</lastBuildDate><atom:link href="https://paulbridger.com/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 30 Sep 2020 08:43:23 +0200</lastBuildDate><atom:link href="https://paulbridger.com/categories/video-analytics/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>From 10 FPS to 650 FPS: Making Deep Learning Fast</title>
       <link>https://paulbridger.com/docs/video_analytics_pipeline_tuning/</link>

@@ -4,35 +4,17 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="###TODO
-  conclusion
-  description metadata
-  review rules of thumb
-  consistent end-matter with social links
-  write an about-me
-  write a front page
-  output csv for regression test
-  pytorch-video-pipeline repo README
-  From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different.">
+<meta name="description" content="Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement.">
 <meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="From 10 FPS to 650 FPS: Making Deep Learning Fast" />
-<meta property="og:description" content="###TODO
-  conclusion
-  description metadata
-  review rules of thumb
-  consistent end-matter with social links
-  write an about-me
-  write a front page
-  output csv for regression test
-  pytorch-video-pipeline repo README
-  From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different." />
+<meta property="og:description" content="Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://paulbridger.com/docs/video_analytics_pipeline_tuning/" />
-<meta property="article:published_time" content="2020-08-23T08:43:23+02:00" />
-<meta property="article:modified_time" content="2020-08-23T08:43:23+02:00" />
+<meta property="article:published_time" content="2020-09-30T08:43:23+02:00" />
+<meta property="article:modified_time" content="2020-09-30T08:43:23+02:00" />
 <title>From 10 FPS to 650 FPS: Making Deep Learning Fast | paulbridger.com</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.png" type="image/x-icon">
-<link rel="stylesheet" href="/book.min.91028b48a67fc5617943c8dc17236b59e64a3c795f22aad952c461c055582264.css" integrity="sha256-kQKLSKZ/xWF5Q8jcFyNrWeZKPHlfIqrZUsRhwFVYImQ=">
+<link rel="stylesheet" href="/book.min.ba8448ed089962c8af1a15205d51fb160a24caf167171c1d85be12039209e2de.css" integrity="sha256-uoRI7QiZYsivGhUgXVH7FgokyvFnFxwdhb4SA5IJ4t4=">
 <script type="application/javascript">
 var doNotTrack = false;
 if (!doNotTrack) {
@@ -90,7 +72,7 @@ https://github.com/alex-shpak/hugo-book
         <li>
           
   
-    <a href="/docs/video_analytics_pytorch_pipeline/" class="">A Simple and Flexible Pytorch Video Pipeline</a>
+    <a href="/docs/video_analytics_pipeline_tuning/" class="active">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
   
 
         </li>
@@ -100,7 +82,7 @@ https://github.com/alex-shpak/hugo-book
         <li>
           
   
-    <a href="/docs/video_analytics_pipeline_tuning/" class="active">From 10 FPS to 650 FPS: Making Deep Learning Fast</a>
+    <a href="/docs/video_analytics_pytorch_pipeline/" class="">A Simple and Flexible Pytorch Video Pipeline</a>
   
 
         </li>
@@ -186,30 +168,9 @@ https://github.com/alex-shpak/hugo-book
       
   <article class="markdown"><p>###TODO</p>
 <ul>
-<li>
-<p>conclusion</p>
-</li>
-<li>
-<p>description metadata</p>
-</li>
-<li>
-<p>review rules of thumb</p>
-</li>
-<li>
-<p>consistent end-matter with social links</p>
-</li>
-<li>
-<p>write an about-me</p>
-</li>
-<li>
-<p>write a front page</p>
-</li>
-<li>
-<p>output csv for regression test</p>
-</li>
-<li>
-<p>pytorch-video-pipeline repo README</p>
-</li>
+<li>review rules of thumb</li>
+<li>write an about-me</li>
+<li>write a front page</li>
 </ul>
 <h1 id="from-10-fps-to-650-fps-making-deep-learning-fast">
   From 10 FPS to 650 FPS: Making Deep Learning Fast
@@ -581,11 +542,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 125px;margin: 0 auto">
-    <canvas id="484"></canvas>
+    <canvas id="611"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('484').getContext('2d');
+    var ctx = document.getElementById('611').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -683,11 +644,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 150px;margin: 0 auto">
-    <canvas id="397"></canvas>
+    <canvas id="551"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('397').getContext('2d');
+    var ctx = document.getElementById('551').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -750,11 +711,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 175px;margin: 0 auto">
-    <canvas id="787"></canvas>
+    <canvas id="344"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('787').getContext('2d');
+    var ctx = document.getElementById('344').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -987,11 +948,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 200px;margin: 0 auto">
-    <canvas id="148"></canvas>
+    <canvas id="498"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('148').getContext('2d');
+    var ctx = document.getElementById('498').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -1049,11 +1010,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 250px;margin: 0 auto">
-    <canvas id="399"></canvas>
+    <canvas id="787"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('399').getContext('2d');
+    var ctx = document.getElementById('787').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -1075,11 +1036,27 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 <p>While hunting for the new bottleneck I found that the video decoding and tensor creation stage can operate at over 3000 FPS, so this is fine.</p>
 <p>On a hunch I decided to get a measure of the <a href="https://wiki.python.org/moin/GlobalInterpreterLock">Global Interpreter Lock</a> (GIL) load. If you are reading the code you&rsquo;ll know that we are doing almost no compute whatsoever within Python (and therefore spend as little time as possible within Python holding the GIL), but we do have multiple concurrent Python threads submitting streams of operations to the GPUs.</p>
-<p>Using a GIL sampling tool called <a href="https://github.com/chrisjbillington/gil_load">gil_load</a> I measured the GIL as being actively held over 45% of the time, and with processes waiting to acquire it over 30% of time. This seemed like a problem so I investigated the effect of adding spurious GIL-consuming threads (which just do <code>1 + 1</code> repeatedly). Even when adding a single thread designed to consume approximately 10% of GIL time the throughput is immediately reduced.</p>
-<p>We have come far enough, from 10 FPS to 650 FPS. The solution to Python&rsquo;s GIL problem is not some trick, it is to stop using Python.</p>
+<p>Using a GIL sampling tool called <a href="https://github.com/chrisjbillington/gil_load">gil_load</a> I measured the GIL as being actively held over 45% of the time, and with processes waiting to acquire it over 30% of time. This is a problem.</p>
+<p>To investigate the impact of this GIL contention on throughput, I added varying numbers of spurious GIL-consuming threads (which just do <code>1 + 1</code> repeatedly). Even when adding a single thread designed to consume approximately 10% of GIL time the throughput is immediately reduced (by around 50 FPS).</p>
+<h1 id="conclusion">
+  Conclusion
+  <a class="anchor" href="#conclusion">#</a>
+</h1>
+<p>Given the initial aim of pushing a Python-based pipeline to the limit, we have come far enough. The solution to Python&rsquo;s GIL bottleneck is not some trick, it is to stop using Python for data path code.</p>
+<p>We&rsquo;ve come a long way — from 10 FPS to 650 FPS — but the latest view of Nsight Systems still shows plenty of headroom left on the hardware. Drilling in also shows plenty of problems to fix — unexplained small memory transfers, unnecessary synchronization, etc.</p>
+<p>I&rsquo;ll dig into all of this in a future post on creating a lightning-fast pipeline combining Gstreamer with Nvidia&rsquo;s <a href="https://developer.nvidia.com/deepstream-getting-started">DeepStream</a> technology.</p>
 </article>
  
-      
+      <article class="markdown social">
+    <hr>
+    <img style="float: right; margin: 0px 0px 15px 15px;" width="100" src="/images/bw_profile_400x400.jpg" />
+    <ol>
+        <li>Follow me on Twitter: <a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target="blank_">@paul_bridger</a></li>
+        <li>Connect on Linked-In: <a href="https://www.linkedin.com/in/paulbridger/" target="blank_">Paul Bridger</a></li>
+        <li>Email me: paul at paulbridger.com</li>
+    </ol>
+</article>
+
 
       <footer class="book-footer">
         
@@ -1092,7 +1069,9 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 </div>
 
  
-        
+        <hr>
+<b>&copy; Paul Bridger 2020</b>
+
       </footer>
 
       
