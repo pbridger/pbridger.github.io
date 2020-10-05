@@ -4,11 +4,27 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.
-This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming.">
+<meta name="description" content="###TODO
+  conclusion
+  description metadata
+  review rules of thumb
+  consistent end-matter with social links
+  write an about-me
+  write a front page
+  output csv for regression test
+  pytorch-video-pipeline repo README
+  From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different.">
 <meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="From 10 FPS to 650 FPS: Making Deep Learning Fast" />
-<meta property="og:description" content="From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&rsquo;ll have to adjust some assumptions about what patterns are best.
-This article is a practical deep dive into making a specific deep learning model (Nvidia&rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming." />
+<meta property="og:description" content="###TODO
+  conclusion
+  description metadata
+  review rules of thumb
+  consistent end-matter with social links
+  write an about-me
+  write a front page
+  output csv for regression test
+  pytorch-video-pipeline repo README
+  From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://paulbridger.com/docs/video_analytics_pipeline_tuning/" />
 <meta property="article:published_time" content="2020-08-23T08:43:23+02:00" />
@@ -21,7 +37,7 @@ This article is a practical deep dive into making a specific deep learning model
 var doNotTrack = false;
 if (!doNotTrack) {
 	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-	ga('create', 'UA-XXXXXXXXX-X', 'auto');
+	ga('create', 'UA-3441595-4', 'auto');
 	
 	ga('send', 'pageview');
 }
@@ -168,7 +184,34 @@ https://github.com/alex-shpak/hugo-book
 
       
       
-  <article class="markdown"><h1 id="from-10-fps-to-650-fps-making-deep-learning-fast">
+  <article class="markdown"><p>###TODO</p>
+<ul>
+<li>
+<p>conclusion</p>
+</li>
+<li>
+<p>description metadata</p>
+</li>
+<li>
+<p>review rules of thumb</p>
+</li>
+<li>
+<p>consistent end-matter with social links</p>
+</li>
+<li>
+<p>write an about-me</p>
+</li>
+<li>
+<p>write a front page</p>
+</li>
+<li>
+<p>output csv for regression test</p>
+</li>
+<li>
+<p>pytorch-video-pipeline repo README</p>
+</li>
+</ul>
+<h1 id="from-10-fps-to-650-fps-making-deep-learning-fast">
   From 10 FPS to 650 FPS: Making Deep Learning Fast
   <a class="anchor" href="#from-10-fps-to-650-fps-making-deep-learning-fast">#</a>
 </h1>
@@ -183,13 +226,35 @@ https://github.com/alex-shpak/hugo-book
   How Far Can We Push a Python-based Inference Pipeline?
   <a class="anchor" href="#how-far-can-we-push-a-python-based-inference-pipeline">#</a>
 </h3>
-<p>Part of the point of this article is to see what throughput we can get without leaving behind the flexibility of Python or the familiarity of the library the model was created with. We will not go super deep into custom CUDA kernels or use a standard &ldquo;serving&rdquo; framework because we will find many large optimizations available at a high level. We&rsquo;ll start from a naively implemented simple video inference pipeline, following on from my introductory <a href="/posts/video_analytics_pytorch_pipeline">Pytorch Video Pipeline</a> article.</p>
+<p>Part of the point of this article is to see what throughput we can get without leaving behind the flexibility of Python or the familiarity of the library the model was created with. We will not go super deep into custom CUDA kernels or use a standard &ldquo;serving&rdquo; framework because we will find many large optimizations available at a high level. We&rsquo;ll start from a naively implemented simple video inference pipeline, following on from my introductory <a href="/docs/video_analytics_pytorch_pipeline/">Pytorch Video Pipeline</a> article.</p>
 <p>Sample code is in the same repo: <a href="https://github.com/pbridger/pytorch-video-pipeline">https://github.com/pbridger/pytorch-video-pipeline</a>.</p>
 <h2 id="stage-0-pytorch-hub-baseline">
   Stage 0: PyTorch Hub Baseline
   <a class="anchor" href="#stage-0-pytorch-hub-baseline">#</a>
 </h2>
-<p>The baseline version of the code (<a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_baseline.py">tuning_baseline.py</a>) will use the postprocessing functions in the <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">SSD300</a> repo as per the <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">PyTorch Hub page</a>. The implementers of this model do not pretend this sample code is production ready and we will find many ways to improve it. In fact, the published <a href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Detection/SSD#inference-performance-results">benchmarking results</a> for this model do not run the postprocessing code at all.</p>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_baseline.py">tuning_baseline.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_baseline.qdrep
+
+">tuning_baseline.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_baseline.pipeline.dot.png
+
+">tuning_baseline.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>The baseline version of the code will use the postprocessing functions in the <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">SSD300</a> repo as per the <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">PyTorch Hub page</a>. The implementers of this model do not pretend this sample code is production ready and we will find many ways to improve it. In fact, the published <a href="https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Detection/SSD#inference-performance-results">benchmarking results</a> for this model do not run the postprocessing code at all.</p>
 <p>Top-level per-frame processing logic looks like this:</p>
 
 
@@ -335,7 +400,29 @@ https://github.com/alex-shpak/hugo-book
   Stage 1: Fix Fine-Grained Synchronization
   <a class="anchor" href="#stage-1-fix-fine-grained-synchronization">#</a>
 </h2>
-<p>The updated code (<a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_1.py">tuning_postprocess_1.py</a>) looks like this:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_1.py">tuning_postprocess_1.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_postprocess_1.qdrep
+
+">tuning_postprocess_1.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_postprocess_1.pipeline.dot.png
+
+">tuning_postprocess_1.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>The updated code looks like this:</p>
 
 
 
@@ -391,8 +478,30 @@ https://github.com/alex-shpak/hugo-book
   Stage 2: Postprocessing on GPU
   <a class="anchor" href="#stage-2-postprocessing-on-gpu">#</a>
 </h2>
-<p>Turning preprocessing and postprocessing into heavily vectorized GPU code can be tricky for some models but is one of the highest-impact performance improvements you can make. I&rsquo;ve added around 100 lines of code to do this for the SSD model — check out <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_2.py">tuning_postprocess_2.py</a> for all the details.</p>
-<p>Here is the new top-level postprocessing code:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_2.py">tuning_postprocess_2.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_postprocess_2.qdrep
+
+">tuning_postprocess_2.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_postprocess_2.pipeline.dot.png
+
+">tuning_postprocess_2.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>Turning preprocessing and postprocessing into heavily vectorized GPU code can be tricky for some models but is one of the highest-impact performance improvements you can make.</p>
+<p>I&rsquo;ve added around 100 lines of code to do this for the SSD model — here is the new top-level postprocessing code:</p>
 
 
 
@@ -465,22 +574,22 @@ https://github.com/alex-shpak/hugo-book
     </figure>
 </a>
 
-<p>Postprocessing for a single frame has gone from around 54 ms on CPU to under 3 ms on the GPU. Measuring throughput without tracing overhead we are now getting around 80 FPS, up from 16 FPS with postprocessing on CPU. That&rsquo;s a 400% improvement to frame-processing throughput and shows the ridiculous power of modern GPUs.</p>
+<p>Postprocessing for a single frame has gone from around 54 ms on CPU to under 3 ms on the GPU. Measuring throughput without tracing overhead we are now getting around 80 FPS, up from 16 FPS with postprocessing on CPU.</p>
 
 
 
 
 
 <div style="width: 100%;height: 125px;margin: 0 auto">
-    <canvas id="474"></canvas>
+    <canvas id="484"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('474').getContext('2d');
+    var ctx = document.getElementById('484').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
-<p>This leads to another rule of thumb:</p>
+<p>That&rsquo;s a 400% improvement to frame-processing throughput and shows the ridiculous power of modern GPUs. Another rule of thumb:</p>
 <blockquote class="book-hint info">
   <p><strong>Do Heavy Numerical Work on the GPU</strong></p>
 <p>If it is possible to vectorize code and dispatch large chunks of numerical work to the GPU, it will almost always be worth it.</p>
@@ -491,9 +600,31 @@ https://github.com/alex-shpak/hugo-book
   Stage 3: Batch Processing
   <a class="anchor" href="#stage-3-batch-processing">#</a>
 </h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_batch.py">tuning_batch.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_batch.qdrep
+
+">tuning_batch.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_batch.pipeline.dot.png
+
+">tuning_batch.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
 <p>Looking at the above trace output the most tantalizing observation is that GPU utilization is quite low during the inference phase. This inference is a series of CUDA kernels submitted by the host (CPU) to the device (GPU) — the GPU is doing all the real work but still the host <em>cannot keep up</em>.</p>
 <p>One very easy way to increase the amount of work sent to the GPU is by sending multiple frames through the neural network at once — batch processing.</p>
-<p>In this simplistic implementation only the top-level per-frame code changes. Frame tensors are accumulated into a list and when the list reaches the <code>batch_size</code> we do the preprocessing, inference and postprocessing on the entire batch at once. I&rsquo;ve also changed the NVTX ranges so we can track the accumulation of the batch. See the full updated source here: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_batch.py">tuning_batch.py</a>.</p>
+<p>In this simplistic implementation only the top-level per-frame code changes. Frame tensors are accumulated into a list and when the list reaches the <code>batch_size</code> we do the preprocessing, inference and postprocessing on the entire batch at once. I&rsquo;ve also changed the NVTX ranges so we can track the accumulation of the batch.</p>
 
 
 
@@ -545,18 +676,18 @@ https://github.com/alex-shpak/hugo-book
     <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">nvtx</span><span class="o">.</span><span class="n">range_pop</span><span class="p">()</span> <span class="c1"># batch</span>
     <span class="k">return</span> <span class="n">Gst</span><span class="o">.</span><span class="n">PadProbeReturn</span><span class="o">.</span><span class="n">OK</span></code></pre></div>
 
-<p>With this simple change (using a batch-size of 4) throughput jumps from 80 FPS to around 125 FPS (a 56% improvement).</p>
+<p>With this simple change (using a batch-size of 4) throughput jumps from 80 FPS to around 125 FPS.</p>
 
 
 
 
 
 <div style="width: 100%;height: 150px;margin: 0 auto">
-    <canvas id="777"></canvas>
+    <canvas id="397"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('777').getContext('2d');
+    var ctx = document.getElementById('397').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -588,20 +719,42 @@ https://github.com/alex-shpak/hugo-book
   Stage 4: Half-Precision Inference on Tensor Cores
   <a class="anchor" href="#stage-4-half-precision-inference-on-tensor-cores">#</a>
 </h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_fp16.py">tuning_fp16.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_fp16.qdrep
+
+">tuning_fp16.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_fp16.pipeline.dot.png
+
+">tuning_fp16.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
 <p>One of the reasons I picked <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">Nvidia&rsquo;s SSD300</a> model for this article is because Nvidia provides both float32 and half-precision float16 pre-trained versions. Prior to Pytorch 1.6 the best way to train a mixed precision model was to use <a href="https://github.com/NVIDIA/apex">Nvidia&rsquo;s Apex library</a> which makes it easy to store and train model weights with float16 precision while accumulating gradients in float32 tensors. In Pytorch &gt;= 1.6 this support is <a href="https://pytorch.org/docs/stable/notes/amp_examples.html">built-in</a>.</p>
-<p>For our purposes the only code change required is to 1) load a different version of the model from Torch Hub, and 2) ensure tensors sent for inference are float16 not float32. Full updated source is here: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_fp16.py">tuning_fp16.py</a>. I&rsquo;ve also increased batch-size from 4 to 8 in this iteration in order to maintain &gt;95% GPU utilisation during inference.</p>
-<p>When run without tracing overhead throughput has improved from 125 FPS to 185 FPS. Another essentially free ~50% increase in throughput thanks to the tensor cores.</p>
+<p>For our purposes the only code change required is to 1) load a different version of the model from Torch Hub, and 2) ensure tensors sent for inference are float16 not float32. I&rsquo;ve also increased batch-size from 4 to 8 in this iteration in order to maintain &gt;95% GPU utilisation during inference.</p>
+<p>When run without tracing overhead throughput has improved from 125 FPS to 185 FPS. An almost effortless ~50% increase in throughput thanks to the tensor cores.</p>
 
 
 
 
 
 <div style="width: 100%;height: 175px;margin: 0 auto">
-    <canvas id="657"></canvas>
+    <canvas id="787"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('657').getContext('2d');
+    var ctx = document.getElementById('787').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -632,10 +785,32 @@ https://github.com/alex-shpak/hugo-book
   Stage 5: Decode Video Direct to Device
   <a class="anchor" href="#stage-5-decode-video-direct-to-device">#</a>
 </h2>
-<p>Those large host/device memory transfers are due to the inability of Gstreamer to directly give us Pytorch tensors sitting on the GPU ready for processing. If you look closely at the 
-<a href="/docs/video_analytics_pipeline_tuning/images/tuning_fp16.pipeline.dot.png">Gstreamer pipeline</a>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_dtod.py">tuning_dtod.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_dtod.qdrep
 
- you&rsquo;ll see that the <code>nvv4l2decoder</code> element is passing <code>video/x-raw(memory:NVMM)</code> buffers downstream — this tells us that the video frames are being decoded using the GPU. The pipeline then explicitly transfers this GPU memory to host using the <code>nvvideoconvert</code> element (note the lack of <code>(memory:NVMM)</code> on the highlighted line):</p>
+">tuning_dtod.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_dtod.pipeline.dot.png
+
+">tuning_dtod.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>Those large host/device memory transfers are due to the inability of Gstreamer to directly give us Pytorch tensors sitting on the GPU ready for processing. If you look closely at the <a href="
+/docs/video_analytics_pipeline_tuning/images/tuning_fp16.pipeline.dot.png
+
+">Gstreamer pipeline</a> you&rsquo;ll see that the <code>nvv4l2decoder</code> element is passing <code>video/x-raw(memory:NVMM)</code> buffers downstream — this tells us that the video frames are being decoded using the GPU. The pipeline then explicitly transfers this GPU memory to host using the <code>nvvideoconvert</code> element (note the lack of <code>(memory:NVMM)</code> on the highlighted line):</p>
 
 
 
@@ -812,11 +987,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 200px;margin: 0 auto">
-    <canvas id="880"></canvas>
+    <canvas id="148"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('880').getContext('2d');
+    var ctx = document.getElementById('148').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -831,6 +1006,28 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
   Stage 6: Concurrency
   <a class="anchor" href="#stage-6-concurrency">#</a>
 </h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_concurrency.py">tuning_concurrency.py</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_concurrency.qdrep
+
+">tuning_concurrency.qdrep</a></td>
+<td align="left"><a href="
+/docs/video_analytics_pipeline_tuning/logs/tuning_concurrency.pipeline.dot.png
+
+">tuning_concurrency.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
 <p>So far our pipeline is highly serial at the batch-component level — postprocessing follows inference, which follows preprocessing, which follows batch creation. In order to get to full utilization while staying serial every component would need to individually reach full utilization. This would be a lot of work (bad).</p>
 <p>A shortcut is to introduce some concurrency so that multiple threads of execution with suboptimal utilization will add up to higher utilization at the system level. Here I will introduce concurrency at multiple levels in a single change, but each of these steps has been tested incrementally so as to avoid madness.</p>
 <p>The changes:</p>
@@ -845,7 +1042,6 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 <li>Put frame batch creation on a dedicated <a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#streams">CUDA stream</a>.</li>
 <li>Use two GPUs for the preprocessing, inference and postprocessing.</li>
 </ul>
-<p>The code changes are too extensive to dig into, but check the source here: <a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_concurrency.py">tuning_concurrency.py</a></p>
 <p>The results are pretty great. Before adding these several levels of concurrency we were at 235 FPS. Now, with a single GPU we are seeing 350 FPS and 650 FPS running on two GPUs (with performance tracing disabled).</p>
 
 
@@ -853,11 +1049,11 @@ Throughput is now up to 235 FPS from 185 FPS.</p>
 
 
 <div style="width: 100%;height: 250px;margin: 0 auto">
-    <canvas id="476"></canvas>
+    <canvas id="399"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('476').getContext('2d');
+    var ctx = document.getElementById('399').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(68, 51, 153, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>

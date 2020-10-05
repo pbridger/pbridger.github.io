@@ -23,8 +23,16 @@ Performance is out of scope for this first step, but we&amp;rsquo;ll do a deep d
       <pubDate>Sun, 23 Aug 2020 08:43:23 +0200</pubDate>
       
       <guid>https://paulbridger.com/docs/video_analytics_pipeline_tuning/</guid>
-      <description>From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. If you come from a background of efficient coding on CPU then you&amp;rsquo;ll have to adjust some assumptions about what patterns are best.
-This article is a practical deep dive into making a specific deep learning model (Nvidia&amp;rsquo;s SSD300) run fast on a powerful GPU server, but the general principles apply to all GPU programming.</description>
+      <description>###TODO
+  conclusion
+  description metadata
+  review rules of thumb
+  consistent end-matter with social links
+  write an about-me
+  write a front page
+  output csv for regression test
+  pytorch-video-pipeline repo README
+  From 10 FPS to 650 FPS: Making Deep Learning Fast #  Intro #  Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different.</description>
     </item>
     
   </channel>
