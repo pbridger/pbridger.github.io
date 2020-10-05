@@ -13,8 +13,7 @@
       <pubDate>Wed, 23 Sep 2020 18:21:00 +0200</pubDate>
       
       <guid>https://paulbridger.com/posts/video_analytics_pytorch_pipeline/</guid>
-      <description>Intro #  Taking machine learning models into production for video analytics doesn&amp;rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&amp;rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: Gstreamer and Pytorch.
-Performance is out of scope for this first step, but we&amp;rsquo;ll do a deep dive in a later article.</description>
+      <description>Taking machine learning models into production for video analytics doesn&amp;rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&amp;rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: &lt;a href=&#34;https://gstreamer.freedesktop.org/&#34;&gt;Gstreamer&lt;/a&gt; and &lt;a href=&#34;https://pytorch.org&#34;&gt;Pytorch&lt;/a&gt;.</description>
     </item>
     
     <item>
