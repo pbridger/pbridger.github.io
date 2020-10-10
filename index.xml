@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>paulbridger.com</title>
+    <title>Machine Learning Articles on paulbridger.com</title>
     <link>https://paulbridger.com/</link>
-    <description>Recent content on paulbridger.com</description>
+    <description>Recent content in Machine Learning Articles on paulbridger.com</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 30 Sep 2020 08:43:23 +0200</lastBuildDate><atom:link href="https://paulbridger.com/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 23 Sep 2020 01:14:00 +0200</lastBuildDate><atom:link href="https://paulbridger.com/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>A Simple and Flexible Pytorch Video Pipeline</title>
       <link>https://paulbridger.com/posts/video_analytics_pytorch_pipeline/</link>
@@ -17,7 +17,7 @@
     </item>
     
     <item>
-      <title>Object Detection: from 9 FPS to 650 FPS in 6 steps</title>
+      <title>Object Detection from 9 FPS to 650 FPS in 6 Steps</title>
       <link>https://paulbridger.com/posts/video_analytics_pipeline_tuning/</link>
       <pubDate>Wed, 30 Sep 2020 08:43:23 +0200</pubDate>
       

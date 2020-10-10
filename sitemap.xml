@@ -18,12 +18,6 @@
   </url>
   
   <url>
-    <loc>https://paulbridger.com/</loc>
-    <lastmod>2020-09-30T08:43:23+02:00</lastmod>
-    <priority>0</priority>
-  </url>
-  
-  <url>
     <loc>https://paulbridger.com/categories/</loc>
     <lastmod>2020-09-30T08:43:23+02:00</lastmod>
   </url>
@@ -36,6 +30,11 @@
   <url>
     <loc>https://paulbridger.com/categories/visual-analytics/</loc>
     <lastmod>2020-09-30T08:43:23+02:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://paulbridger.com/</loc>
+    <lastmod>2020-09-23T01:14:00+02:00</lastmod>
   </url>
   
   <url>
