@@ -9,8 +9,8 @@
 <meta property="og:description" content="In this article we take performance of the SSD300 model even further, leaving Python behind and moving towards true production deployment technologies: TorchScript, TensorRT and DeepStream." />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://paulbridger.com/posts/video-analytics-deepstream-pipeline/" />
-<meta property="article:published_time" content="2020-10-18T08:43:23+02:00" />
-<meta property="article:modified_time" content="2020-10-18T08:43:23+02:00" />
+<meta property="article:published_time" content="2020-10-17T08:43:23+02:00" />
+<meta property="article:modified_time" content="2020-10-17T08:43:23+02:00" />
 <title>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream | paulbridger.com</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.png" type="image/x-icon">
@@ -201,7 +201,7 @@ https://github.com/alex-shpak/hugo-book
     <a href="/posts/video-analytics-deepstream-pipeline/">Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
   </h1>
   
-  <h5>October 18, 2020</h5>
+  <h5>October 17, 2020</h5>
 
 
 
@@ -278,11 +278,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 250px;margin: 0 auto">
-    <canvas id="348"></canvas>
+    <canvas id="747"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('348').getContext('2d');
+    var ctx = document.getElementById('747').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -327,11 +327,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 275px;margin: 0 auto">
-    <canvas id="295"></canvas>
+    <canvas id="13"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('295').getContext('2d');
+    var ctx = document.getElementById('13').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -431,11 +431,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 300px;margin: 0 auto">
-    <canvas id="650"></canvas>
+    <canvas id="247"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('650').getContext('2d');
+    var ctx = document.getElementById('247').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -501,11 +501,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 325px;margin: 0 auto">
-    <canvas id="422"></canvas>
+    <canvas id="460"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('422').getContext('2d');
+    var ctx = document.getElementById('460').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti',\n            'TensorRT'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650,\n                920\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -620,11 +620,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 350px;margin: 0 auto">
-    <canvas id="646"></canvas>
+    <canvas id="699"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('646').getContext('2d');
+    var ctx = document.getElementById('699').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti',\n            'TensorRT - 1x2080Ti',\n            'TensorRT - 2x2080Ti',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
