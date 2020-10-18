@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en" dir=>
+
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="In this article we take performance of the SSD300 model even further, leaving Python behind and moving towards true production deployment technologies: TorchScript, TensorRT and DeepStream.">
+<meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream" />
+<meta property="og:description" content="In this article we take performance of the SSD300 model even further, leaving Python behind and moving towards true production deployment technologies: TorchScript, TensorRT and DeepStream." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://paulbridger.com/posts/video-analytics-deepstream-pipeline/" />
+<meta property="article:published_time" content="2020-10-18T08:43:23+02:00" />
+<meta property="article:modified_time" content="2020-10-18T08:43:23+02:00" />
+<title>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream | paulbridger.com</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="/book.min.030e342384d0fc8ad1dd66a5cb794b552e3856a99ebed0a3dbac490c5d5ffa9e.css" integrity="sha256-Aw40I4TQ/IrR3Waly3lLVS44VqmevtCj26xJDF1f&#43;p4=">
+<script type="application/javascript">
+var doNotTrack = false;
+if (!doNotTrack) {
+	window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+	ga('create', 'UA-3441595-4', 'auto');
+	
+	ga('send', 'pageview');
+}
+</script>
+<script async src='https://www.google-analytics.com/analytics.js'></script>
+<!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+  
+</head>
+
+<body dir=>
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    <aside class="book-menu">
+      
+  <nav>
+<h2 class="book-brand">
+  <a href="/"><span>paulbridger.com</span>
+  </a>
+</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  
+  
+  
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+    <a href="/posts/video-analytics-pytorch-pipeline/" class="">A Simple and Flexible Pytorch Video Pipeline</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+    <a href="/posts/video-analytics-pipeline-tuning/" class="">Object Detection from 9 FPS to 650 FPS in 6 Steps</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+    <a href="/posts/video-analytics-deepstream-pipeline/" class="active">Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+    <a href="/posts/about/" class="">About Me</a>
+  
+
+        </li>
+      
+    
+  </ul>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var menu=document.querySelector("aside.book-menu nav");addEventListener("beforeunload",function(event){localStorage.setItem("menu.scrollTop",menu.scrollTop);});menu.scrollTop=localStorage.getItem("menu.scrollTop");})();</script>
+
+
+ 
+    </aside>
+
+    <div class="book-page">
+      <header class="book-header">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/svg/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <strong>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</strong>
+
+  <label for="toc-control">
+    
+    <img src="/svg/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  <div class="book-toc-div">
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#intro">Intro</a>
+      <ul>
+        <li><a href="#torchscript-vs-tensorrt">🔥TorchScript vs TensorRT🔥</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-0-python-baseline">Stage 0: Python Baseline</a></li>
+    <li><a href="#stage-1-normal-deepstream-mdash-100-torchscript">Stage 1: Normal DeepStream — 100% TorchScript</a>
+      <ul>
+        <li><a href="#hybrid-deepstream-pipeline">Hybrid DeepStream Pipeline</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-2-hacked-deepstream-mdash-100-torchscript">Stage 2: Hacked DeepStream — 100% TorchScript</a></li>
+    <li><a href="#stage-3-hacked-deepstream-mdash-80-tensorrt-20-torchscript">Stage 3: Hacked DeepStream — 80% TensorRT, 20% TorchScript</a></li>
+    <li><a href="#stage-4-normal-deepstream-mdash-80-tensorrt-20-torchscript">Stage 4: Normal DeepStream — 80% TensorRT, 20% TorchScript</a></li>
+    <li><a href="#stage-5-horizontal-scalability">Stage 5: Horizontal Scalability</a></li>
+    <li><a href="#conclusion">Conclusion</a>
+      <ul>
+        <li><a href="#caveats-limitations-and-excuses">Caveats, Limitations and Excuses</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+<nav>
+
+</nav>
+
+</div>
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+<article class="markdown">
+  <h1>
+    <a href="/posts/video-analytics-deepstream-pipeline/">Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
+  </h1>
+  
+  <h5>October 18, 2020</h5>
+
+
+
+  
+  <div>
+    
+      <a href="/categories/visual-analytics/">Visual Analytics</a>
+  </div>
+  
+
+  
+
+
+  <p><!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<h2 id="intro">
+  Intro
+  <a class="anchor" href="#intro">#</a>
+</h2>
+<p>Previously, we took a <a href="/posts/video-analytics-pytorch-pipeline/">simple video pipeline</a> and made it as fast as we could without sacrificing the flexibility of the Python runtime. It&rsquo;s amazing how far you can go — <a href="/posts/video-analytics-pipeline-tuning/">9 FPS to 650 FPS</a> — but we did not reach full hardware utilization and the pipeline did not scale linearly beyond a single GPU. There is evidence (measured using <a href="https://github.com/chrisjbillington/gil_load">gil_load</a>) that we were throttled by a fundamental Python limitation with multiple threads fighting over the <a href="https://wiki.python.org/moin/GlobalInterpreterLock">Global Interpreter Lock</a> (GIL).</p>
+<p>In this article we&rsquo;ll take performance of the same <a href="https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/">SSD300 model</a> even further, leaving Python behind and moving towards true production deployment technologies:</p>
+<ul>
+<li>
+<p><a href="https://pytorch.org/docs/stable/jit.html"><strong>TorchScript.</strong></a> Instead of running directly in the Pytorch runtime, we&rsquo;ll export our model using TorchScript tracing into a form that can be executed portably using the <code>libtorch</code> C++ runtime.</p>
+</li>
+<li>
+<p><a href="https://developer.nvidia.com/tensorrt"><strong>TensorRT.</strong></a> This toolset from Nvidia includes a &ldquo;deep learning inference optimizer&rdquo; — a compiler for optimizing CUDA-based computational graphs. We&rsquo;ll use this to squeeze out every drop of inference efficiency.</p>
+</li>
+<li>
+<p><a href="https://developer.nvidia.com/deepstream-sdk"><strong>DeepStream.</strong></a> While <a href="https://gstreamer.freedesktop.org/">Gstreamer</a> gives us an extensive library of elements to build media pipelines with, DeepStream expands this library with a set of GPU-accelerated elements specialized for machine learning.</p>
+</li>
+</ul>
+<p>These technologies fit together like this:</p>
+<p><img src="
+/posts/video-analytics-deepstream-pipeline/images/deepstream_hybrid.svg
+
+" alt="DeepStream Hybrid Architecture" /></p>
+<p>This article will not be a step-by-step tutorial with code examples, but will show what is possible when these technologies are combined. The associated repository is here: <a href="https://github.com/pbridger/deepstream-video-pipeline">github.com/pbridger/deepstream-video-pipeline</a>.</p>
+<h3 id="torchscript-vs-tensorrt">
+  🔥TorchScript vs TensorRT🔥
+  <a class="anchor" href="#torchscript-vs-tensorrt">#</a>
+</h3>
+<p>Both TorchScript and TensorRT can produce a deployment-ready form of our model, so why do we need both? These great tools may eventually be competitors but in 2020 they are complementary — they each have weaknesses that are compensated for by the other.</p>
+<p><strong>TorchScript.</strong> With a few lines of <code>torch.jit</code> code we can generate a deployment-ready asset from essentially any Pytorch model that will run anywhere libtorch runs. It&rsquo;s not inherently faster (it is submitting approximately the same sequence of kernels) but the libtorch runtime will perform better under high concurrency. However, without care TorchScript output may have performance and portability surprises (I&rsquo;ll cover some of these in a later article).</p>
+<p><strong>TensorRT.</strong> An unparalleled model compiler for Nvidia hardware, but for Pytorch or <a href="https://onnx.ai/">ONNX</a>-based models it has incomplete support and suffers from poor portability. There is a plugin system to add arbitrary layers and postprocessing, but this low-level work is out of reach for groups without specialized deployment teams. TensorRT also doesn&rsquo;t support cross-compilation so models must be optimized directly on the target hardware — not great for embedded platforms or highly diverse compute ecosystems.</p>
+<p>Let&rsquo;s begin with a baseline from the previous post in this series — <a href="/posts/video-analytics-pipeline-tuning/">Object Detection from 9 FPS to 650 FPS in 6 Steps</a>.</p>
+<h2 id="stage-0-python-baseline">
+  Stage 0: Python Baseline
+  <a class="anchor" href="#stage-0-python-baseline">#</a>
+</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/pytorch-video-pipeline/blob/master/tuning_postprocess_2.py">tuning_postprocess_2.py</a></td>
+<td align="left"><a href="/posts/video-analytics-pipeline-tuning/logs/tuning_postprocess_2.qdrep">tuning_postprocess_2.qdrep</a></td>
+<td align="left"><a href="/posts/video-analytics-pipeline-tuning/logs/tuning_postprocess_2.pipeline.dot.png">tuning_postprocess_2.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>The <a href="/posts/video-analytics-pipeline-tuning/#stage-2-postprocessing-on-gpu">Postprocessing on GPU</a> stage from my previous post is logically closest to our first DeepStream pipeline. This was a fairly slow, early stage in the Python-based optimization journey but limitations in DeepStream around batching and memory transfer make this the best comparison.</p>
+<p>This stage runs at around 80 FPS:</p>
+
+
+
+
+
+<div style="width: 100%;height: 250px;margin: 0 auto">
+    <canvas id="52"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('52').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>After we get a basic DeepStream pipeline up and running we&rsquo;ll empirically understand and then remove the limitations we see.</p>
+<h2 id="stage-1-normal-deepstream-mdash-100-torchscript">
+  Stage 1: Normal DeepStream — 100% TorchScript
+  <a class="anchor" href="#stage-1-normal-deepstream-mdash-100-torchscript">#</a>
+</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_trt_1.py">ds_trt_1.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_tsc_1.py">ds_tsc_1.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_ssd300_1.py">ds_ssd300_1.py</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_1_1gpu_batch16_host.qdrep
+
+">ds_1_1gpu_batch16_host.qdrep</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_1_1gpu_batch16_host.pipeline.dot.png
+
+">ds_1_1gpu_batch16_host.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>Our approach to using TorchScript and TensorRT together in a DeepStream pipeline will be to follow a hybrid model, where we always have two sequential parts of the model. The first part will be compiled in TensorRT and will then pass it&rsquo;s results to the last part run in TorchScript.</p>
+<h3 id="hybrid-deepstream-pipeline">
+  Hybrid DeepStream Pipeline
+  <a class="anchor" href="#hybrid-deepstream-pipeline">#</a>
+</h3>
+<p>Our hybrid pipeline will use the <code>nvinfer</code> element — from Nvidia&rsquo;s DeepStream — to serve a TensorRT-compiled form of the SSD300 model directly in the media pipeline. Since TensorRT cannot compile the entire model (due to unsupported <a href="https://onnx.ai/">ONNX</a> ops) we&rsquo;ll run the remaining operations as a TorchScript module (via <a href="https://docs.nvidia.com/metropolis/deepstream/plugin-manual/index.html#page/DeepStream%20Plugins%20Development%20Guide/deepstream_plugin_details.html#wwpID0E0TDB0HA">the <code>parse-bbox-func-name</code> hook</a>).</p>
+<p>However, the first pipeline will be the simplest possible while still following the hybrid pattern. The TensorRT model does no processing and simply passes frames to the TorchScript model, which does all preprocessing, inference, and postprocessing. 0% TensorRT, 100% TorchScript.</p>
+<p>This pipeline runs at 110 FPS without tracing overhead. However, this TorchScript model has already been converted to <code>fp16</code> precision so a direct comparison to the Python-based pipeline is a bit misleading.</p>
+
+
+
+
+
+<div style="width: 100%;height: 275px;margin: 0 auto">
+    <canvas id="88"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('88').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>Let&rsquo;s drill into the trace with <a href="https://developer.nvidia.com/nsight-systems">Nvidia&rsquo;s Nsight Systems</a> to understand the patterns of execution. I have zoomed in to the processing for two 16-frame batches:</p>
+
+
+
+
+
+
+
+
+<a href="/posts/video-analytics-deepstream-pipeline/images/ds_100pc_torchscript_normal_ds_two_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/posts/video-analytics-deepstream-pipeline/images/ds_100pc_torchscript_normal_ds_two_batch_hu85cb8d526cf1fda403db89df3e60bf80_432723_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Looking at the red NVTX ranges on the <code>GstNvInfer</code> line we can see overlapping ranges where batches of 16 frames are being processed. However, the pattern of processing on the GPU is quite clear from the 16 utilisation spikes — it is processing frame-by-frame.  We also see constant memory transfers between device and host.</p>
+<p>Drilling in to see just two frames of processing, the pattern is even more clear:</p>
+
+
+
+
+
+
+
+
+<a href="/posts/video-analytics-deepstream-pipeline/images/ds_100pc_torchscript_normal_ds_two_frame.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/posts/video-analytics-deepstream-pipeline/images/ds_100pc_torchscript_normal_ds_two_frame_hudc758a7e69d7157937e6a1d7caab6946_421239_896x540_fill_box_top_2.png" width="896" height="540">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>With a little knowledge of how DeepStream works the problem is clear:</p>
+<ul>
+<li><code>nvinfer</code> sends batches of frames to the configured model engine (our empty TensorRT component) — great.</li>
+<li><code>nvinfer</code> then sends the model output <em>frame by frame</em> to the postprocessing hook (our TorchScript component).</li>
+</ul>
+<p>Since we have put our entire model into a TorchScript postprocessing hook we are now processing frame by frame with no batching, and this is causing very low GPU utilisation.</p>
+<p>We are using DeepStream contrary to the design, but to build a truly hybrid TensorRT+TorchScript pipeline we <strong>need</strong> batched postprocessing.</p>
+<blockquote class="book-hint nvidia">
+  <p><strong>DeepStream Limitation: Postprocessing Hooks are Frame-by-Frame</strong></p>
+<p>The design of <code>nvinfer</code> assumes model output will be postprocessed frame-by-frame. This makes writing postprocessing code a tiny bit easier but is inefficient by default. Preprocessing, inference and postprocessing logic should always assume a batch dimension is present.</p>
+
+</blockquote>
+
+<p>The Nsight Systems view above also shows a pointless sequence of device-to-host then host-to-device transfers. The purple device-to-host memory transfer is due to <code>nvinfer</code> sending tensors to system memory, ready for the postprocessing code to use it. The green host-to-device transfers are me putting this memory back on the GPU where it belongs.</p>
+<blockquote class="book-hint nvidia">
+  <p><strong>DeepStream Limitation: Postprocessing is Assumed to Happen on Host</strong></p>
+<p>This is a legacy of early machine learning approaches. Modern deep learning pipelines keep data on the GPU end-to-end, including data augmentation and postprocessing. See Nvidia&rsquo;s <a href="https://developer.nvidia.com/DALI">DALI library</a> for an example of this.</p>
+
+</blockquote>
+
+<p>Okay, time to hack DeepStream and remove these limitations.</p>
+<h2 id="stage-2-hacked-deepstream-mdash-100-torchscript">
+  Stage 2: Hacked DeepStream — 100% TorchScript
+  <a class="anchor" href="#stage-2-hacked-deepstream-mdash-100-torchscript">#</a>
+</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_trt_2.py">ds_trt_2.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_tsc_2.py">ds_tsc_2.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_ssd300_2.py">ds_ssd300_2.py</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_2_1gpu_batch16_device.qdrep
+
+">ds_2_1gpu_batch16_device.qdrep</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_2_1gpu_batch16_device.pipeline.dot.png
+
+">ds_2_1gpu_batch16_device.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>Thankfully, Nvidia have provided source for the <code>nvinfer</code> pipeline element. I&rsquo;ve made two changes to better support our approach of doing significant work in the postprocessing hook and fix the above limitations:</p>
+<ul>
+<li><code>nvinfer</code> model engine output is now sent in a single batch to the postprocessing hook.</li>
+<li>Model output tensors are no-longer copied to host, but are left on the device.</li>
+</ul>
+<blockquote class="book-hint nvidia">
+  These <code>nvinfer</code> changes are unreleased and are not present in the companion repository (<a href="https://github.com/pbridger/deepstream-video-pipeline">github.com/pbridger/deepstream-video-pipeline</a>) because they are clearly derivative of <code>nvinfer</code> and I&rsquo;m unsure of the licensing. Nvidia people, feel free to <!-- raw HTML omitted -->get in touch<!-- raw HTML omitted -->!
+</blockquote>
+
+<p>With hacked DeepStream and no model changes at all this pipeline now hits 350 FPS when measured with no tracing overhead. This is up from 110 FPS with regular DeepStream. I think we deserve a chart:</p>
+
+
+
+
+
+<div style="width: 100%;height: 300px;margin: 0 auto">
+    <canvas id="961"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('961').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>The <code>Concurrency 1x2080Ti</code> stage from the Python pipeline is now the closest comparison both in terms of FPS and optimizations applied. Both pipelines have batched inference, video frames decoded and processed on GPU end-to-end, and concurrency at the batch level (note the overlapping NVTX ranges below). One additional level of concurrency in the Python pipeline is multiple overlapping CUDA streams.</p>
+<p>The Nsight Systems view shows processing for several 16-frame batches:</p>
+
+
+
+
+
+
+
+
+<a href="/posts/video-analytics-deepstream-pipeline/images/ds_100pc_torchscript_hacked_ds_two_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/posts/video-analytics-deepstream-pipeline/images/ds_100pc_torchscript_hacked_ds_two_batch_hudc758a7e69d7157937e6a1d7caab6946_445767_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>We now have good GPU utilization and very few needless memory transfers, so the path forward is to optimize the TorchScript model. Until now the TensorRT component has been entirely pass-through and everything from preprocessing, inference and postprocessing has been in TorchScript.</p>
+<p>It&rsquo;s time to start using the TensorRT optimizer, so get ready for some excitement.</p>
+<h2 id="stage-3-hacked-deepstream-mdash-80-tensorrt-20-torchscript">
+  Stage 3: Hacked DeepStream — 80% TensorRT, 20% TorchScript
+  <a class="anchor" href="#stage-3-hacked-deepstream-mdash-80-tensorrt-20-torchscript">#</a>
+</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_trt_3.py">ds_trt_3.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_tsc_3.py">ds_tsc_3.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_ssd300_3.py">ds_ssd300_3.py</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_3_1gpu_batch16_device.qdrep
+
+">ds_3_1gpu_batch16_device.qdrep</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_3_1gpu_batch16_device.pipeline.dot.png
+
+">ds_3_1gpu_batch16_device.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>According to Nvidia, TensorRT <a href="https://developer.nvidia.com/tensorrt">&ldquo;dramatically accelerates deep learning inference performance&rdquo;</a> so why not compile 100% of our model with TensorRT?</p>
+<p>The Pytorch export to TensorRT consists of a couple of steps, and both provide an opportunity for incomplete support:</p>
+<ol>
+<li>Export the Pytorch model to the <a href="https://onnx.ai/">ONNX</a> interchange representation via <a href="https://pytorch.org/docs/stable/onnx.html#tracing-vs-scripting">tracing or scripting</a>.</li>
+<li>Compile the ONNX representation into a TensorRT engine, the optimized form of the model.</li>
+</ol>
+<p>If you try to create an optimized TensorRT engine for this entire model (SSD300 including postprocessing), the first problem you will run into is the export to ONNX of the <code>repeat_interleave</code> operation during postprocessing. Pytorch 1.6 does not support this export, I don&rsquo;t know why.</p>
+<p>Just like writing C++ in the days before conforming compilers, it&rsquo;s often possible to rewrite model code to work around unsupported operations. See <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_ssd300_5.py">ds_ssd300_5.py</a> for an example that replaces <code>repeat_interleave</code> and will now export to ONNX. However, now the TensorRT compilation fails with another unsupported operation — <code>No importer registered for op: ScatterND</code>.</p>
+<p>Dealing with all this is fine if you have a dedicated deployment team — simply write custom plugins and CUDA kernels — but most teams don&rsquo;t have those resources or time to invest in this.</p>
+<p>This is why the hybrid approach works so well — we can get the benefits of TensorRT optimization for most of our model and cover the rest with TorchScript.</p>
+<p>Speaking of benefits:</p>
+
+
+
+
+
+<div style="width: 100%;height: 325px;margin: 0 auto">
+    <canvas id="432"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('432').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti',\n            'TensorRT'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650,\n                920\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>920 FPS up from 350 FPS is a huge jump, and we are still only using a single 2080Ti GPU. Let&rsquo;s check Nsight Systems to understand how this can be possible:</p>
+
+
+
+
+
+
+
+
+<a href="/posts/video-analytics-deepstream-pipeline/images/ds_80pc_tensorrt_hacked_ds_two_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/posts/video-analytics-deepstream-pipeline/images/ds_80pc_tensorrt_hacked_ds_two_batch_hudc758a7e69d7157937e6a1d7caab6946_489589_896x520_fill_box_top_2.png" width="896" height="520">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>Two important things to note:</p>
+<ul>
+<li>TensorRT inference for batch N is now interleaved/concurrent with TorchScript postprocessing for batch N-1, helping to fill in utilization gaps.</li>
+<li>The TensorRT preprocessing and inference are massively faster than the TorchScript version. Around 43ms of TorchScript preprocessing and inference have turned into around 16ms of equivalent TensorRT processing.</li>
+</ul>
+<p>This Nsight Systems trace output now looks a little like what we were aiming for:</p>
+<p><img src="
+/posts/video-analytics-deepstream-pipeline/images/deepstream_hybrid.svg
+
+" alt="DeepStream Hybrid Architecture" /></p>
+<p>Given the awesome improvement TensorRT gave us, did we really need to hack DeepStream?</p>
+<h2 id="stage-4-normal-deepstream-mdash-80-tensorrt-20-torchscript">
+  Stage 4: Normal DeepStream — 80% TensorRT, 20% TorchScript
+  <a class="anchor" href="#stage-4-normal-deepstream-mdash-80-tensorrt-20-torchscript">#</a>
+</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_trt_4.py">ds_trt_4.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_tsc_4.py">ds_tsc_4.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_ssd300_4.py">ds_ssd300_4.py</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_4_1gpu_batch16_host.qdrep
+
+">ds_4_1gpu_batch16_host.qdrep</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_4_1gpu_batch16_host.pipeline.dot.png
+
+">ds_4_1gpu_batch16_host.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>In short, yes, we did need to hack DeepStream to get the best throughput. Unless you like the sound of 360 FPS when you could be hitting 920 FPS. This is a step backwards so I&rsquo;m not adding it to our chart.</p>
+<p>Here is the trace when we run the TensorRT-optimized model with the TorchScript final processing:</p>
+
+
+
+
+
+
+
+
+<a href="/posts/video-analytics-deepstream-pipeline/images/ds_80pc_tensorrt_normal_ds_two_batch.png">
+    <figure style="margin: 2rem 0">
+        <img style="max-width: 100%; width: auto; height: auto;" src="/posts/video-analytics-deepstream-pipeline/images/ds_80pc_tensorrt_normal_ds_two_batch_hudc758a7e69d7157937e6a1d7caab6946_427650_896x550_fill_box_top_2.png" width="896" height="550">
+        <figcaption><small></small></figcaption>
+    </figure>
+</a>
+
+<p>The problems are pretty clear, as annotated in the trace.</p>
+<blockquote class="book-hint nvidia">
+  <p><strong>DeepStream is Awesome</strong></p>
+<p>But Hacked DeepStream is even better. :D</p>
+
+</blockquote>
+
+<h2 id="stage-5-horizontal-scalability">
+  Stage 5: Horizontal Scalability
+  <a class="anchor" href="#stage-5-horizontal-scalability">#</a>
+</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Code</th>
+<th align="left">Nsight Systems Trace</th>
+<th align="left">Gstreamer Pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_trt_3.py">ds_trt_3.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_tsc_3.py">ds_tsc_3.py</a>, <a href="https://github.com/pbridger/deepstream-video-pipeline/blob/master/ds_ssd300_3.py">ds_ssd300_3.py</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_3_2gpu_batch16_device.qdrep
+
+">ds_3_2gpu_batch16_device.qdrep</a></td>
+<td align="left"><a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_3_2gpu_batch16_device.pipeline.dot.png
+
+">ds_3_2gpu_batch16_device.pipeline.dot.png</a></td>
+</tr>
+</tbody>
+</table>
+<p>Doubling the hardware available to our Python-based pipeline boosted throughput from 350 FPS to 650 FPS, around an 86% increase. This was a single Python process driving two very powerful GPUs so it&rsquo;s a great result. Given the measured GIL contention at around 45% scaling further would have become less efficient, perhaps requiring a multi-process approach.</p>
+<p>Our DeepStream pipelines have been launched from Python, but with no callbacks beyond an empty once-per-second message loop so there is no chance of GIL contention. Measured without tracing overhead these DeepStream pipelines show perfect scalability (at least from 1 to 2 devices), topping out at 1840 FPS. It&rsquo;s like Christmas morning.</p>
+
+
+
+
+
+<div style="width: 100%;height: 350px;margin: 0 auto">
+    <canvas id="764"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script type="text/javascript">
+    var ctx = document.getElementById('764').getContext('2d');
+    var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti',\n            'TensorRT - 1x2080Ti',\n            'TensorRT - 2x2080Ti',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
+    new Chart(ctx, options);
+</script>
+<p>Incidentally, whereas most of the previous stages suffer from a roughly 15% hit to throughput with Nsight Systems tracing enabled this pipeline takes a 40% drop. You&rsquo;ll see this difference if you download and analyze the linked trace files.</p>
+<h2 id="conclusion">
+  Conclusion
+  <a class="anchor" href="#conclusion">#</a>
+</h2>
+<p>We have a pipeline capable of doing 1840 FPS of useful object detection throughput, and this is phenomenal. This should convincingly demonstrate the effectiveness of these technologies working together.</p>
+<p>Despite the huge gains delivered by TensorRT optimization and the efficient scalability of DeepStream, <strong>TorchScript is the unsung hero of this story for me</strong>. The ability to easily export any Pytorch model without worrying about missing layers or operations is huge. Without TorchScript and <code>libtorch</code> I would still be writing TensorRT plugins.</p>
+<h3 id="caveats-limitations-and-excuses">
+  Caveats, Limitations and Excuses
+  <a class="anchor" href="#caveats-limitations-and-excuses">#</a>
+</h3>
+<p>The Gstreamer/DeepStream pipelines used above do not reflect 100% realistic usage. If you review the pipeline diagrams (eg. <a href="
+/posts/video-analytics-deepstream-pipeline/logs/ds_3_2gpu_batch16_device.pipeline.dot.png
+
+">ds_3_2gpu_batch16_device.pipeline.dot.png</a>) you&rsquo;ll see a single file is being read and piped into the <code>nvstreammux</code> component many times. This is how you would handle multiple concurrent media streams into a single inference engine, but the real reason I&rsquo;ve done this is to work around a <a href="https://forums.developer.nvidia.com/t/ds-5-0-1-nvstreammux-batch-size-bug/157039">limitation of <code>nvstreammux</code></a> around batching. Read the linked issue for the details, but it is fair to say that <code>nvstreammux</code> is not intended for assembling efficiently-sized batches when processing a small number of input streams.</p>
+<p>Also as noted above, my &ldquo;Hacked DeepStream&rdquo; code is not yet publically available. I&rsquo;ll work to tidy this up and if I&rsquo;m sure of the licensing situation I&rsquo;ll make this available.</p>
+<p>Finally the code in the <a href="https://github.com/pbridger/deepstream-video-pipeline">associated repository</a> is not polished tutorial code, it is hacky research code so caveat emptor.</p>
+</p>
+</article>
+ 
+      <article class="markdown social">
+    <hr>
+    <img style="float: right; padding: 10px 0px 15px 10px;" width="90" src="/images/bw_profile_400x400.jpg" />
+    <ol style="">
+        <li>Follow me on Twitter: <a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target="blank_">@paul_bridger</a></li>
+        <li>Connect on Linked-In: <a href="https://www.linkedin.com/in/paulbridger/" target="blank_">Paul Bridger</a></li>
+        <li>Email me: <a href="mailto:paul@paulbridger.com">paul@paulbridger.com</a></li>
+    </ol>
+</article>
+
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+
+
+
+
+</div>
+
+ 
+        <hr>
+<b>&copy; Paul Bridger 2020</b>
+
+      </footer>
+
+      
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+    <aside class="book-toc">
+      
+  <div class="book-toc-div">
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#intro">Intro</a>
+      <ul>
+        <li><a href="#torchscript-vs-tensorrt">🔥TorchScript vs TensorRT🔥</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-0-python-baseline">Stage 0: Python Baseline</a></li>
+    <li><a href="#stage-1-normal-deepstream-mdash-100-torchscript">Stage 1: Normal DeepStream — 100% TorchScript</a>
+      <ul>
+        <li><a href="#hybrid-deepstream-pipeline">Hybrid DeepStream Pipeline</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage-2-hacked-deepstream-mdash-100-torchscript">Stage 2: Hacked DeepStream — 100% TorchScript</a></li>
+    <li><a href="#stage-3-hacked-deepstream-mdash-80-tensorrt-20-torchscript">Stage 3: Hacked DeepStream — 80% TensorRT, 20% TorchScript</a></li>
+    <li><a href="#stage-4-normal-deepstream-mdash-80-tensorrt-20-torchscript">Stage 4: Normal DeepStream — 80% TensorRT, 20% TorchScript</a></li>
+    <li><a href="#stage-5-horizontal-scalability">Stage 5: Horizontal Scalability</a></li>
+    <li><a href="#conclusion">Conclusion</a>
+      <ul>
+        <li><a href="#caveats-limitations-and-excuses">Caveats, Limitations and Excuses</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+<nav>
+
+</nav>
+
+</div>
+
+ 
+    </aside>
+    
+  </main>
+
+  
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
