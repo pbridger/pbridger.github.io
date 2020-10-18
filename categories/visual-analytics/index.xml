@@ -9,19 +9,19 @@
     <lastBuildDate>Wed, 30 Sep 2020 08:43:23 +0200</lastBuildDate><atom:link href="https://paulbridger.com/categories/visual-analytics/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>A Simple and Flexible Pytorch Video Pipeline</title>
-      <link>https://paulbridger.com/posts/video_analytics_pytorch_pipeline/</link>
+      <link>https://paulbridger.com/posts/video-analytics-pytorch-pipeline/</link>
       <pubDate>Wed, 23 Sep 2020 18:21:00 +0200</pubDate>
       
-      <guid>https://paulbridger.com/posts/video_analytics_pytorch_pipeline/</guid>
+      <guid>https://paulbridger.com/posts/video-analytics-pytorch-pipeline/</guid>
       <description>Taking machine learning models into production for video analytics doesn&amp;rsquo;t have to be hard. A pipeline with reasonable efficiency can be created very quickly just by plugging together the right libraries. In this post we&amp;rsquo;ll create a video pipeline with a focus on flexibility and simplicity using two main libraries: &lt;a href=&#34;https://gstreamer.freedesktop.org/&#34;&gt;Gstreamer&lt;/a&gt; and &lt;a href=&#34;https://pytorch.org&#34;&gt;Pytorch&lt;/a&gt;.</description>
     </item>
     
     <item>
       <title>Object Detection from 9 FPS to 650 FPS in 6 Steps</title>
-      <link>https://paulbridger.com/posts/video_analytics_pipeline_tuning/</link>
+      <link>https://paulbridger.com/posts/video-analytics-pipeline-tuning/</link>
       <pubDate>Wed, 30 Sep 2020 08:43:23 +0200</pubDate>
       
-      <guid>https://paulbridger.com/posts/video_analytics_pipeline_tuning/</guid>
+      <guid>https://paulbridger.com/posts/video-analytics-pipeline-tuning/</guid>
       <description>Making code run fast on GPUs requires a very different approach to making code run fast on CPUs because the hardware architecture is fundamentally different. Machine learning engineers of all kinds should care about squeezing performance from their models and hardware — not just for production purposes, but also for research and training. In research as in development, a fast iteration loop leads to faster improvement. This article is a practical deep dive into making a specific deep learning model (&lt;a href=&#34;https://pytorch.org/hub/nvidia_deeplearningexamples_ssd/&#34;&gt;Nvidia&amp;rsquo;s SSD300&lt;/a&gt;) run fast on a powerful GPU server, but the general principles apply to all GPU programming.</description>
     </item>
     
