@@ -271,18 +271,18 @@ https://github.com/alex-shpak/hugo-book
 </tbody>
 </table>
 <p>The <a href="/posts/video-analytics-pipeline-tuning/#stage-2-postprocessing-on-gpu">Postprocessing on GPU</a> stage from my previous post is logically closest to our first DeepStream pipeline. This was a fairly slow, early stage in the Python-based optimization journey but limitations in DeepStream around batching and memory transfer make this the best comparison.</p>
-<p>This stage runs at around 80 FPS:</p>
+<p>This Python-based pipeline runs at around 80 FPS:</p>
 
 
 
 
 
 <div style="width: 100%;height: 250px;margin: 0 auto">
-    <canvas id="700"></canvas>
+    <canvas id="945"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('700').getContext('2d');
+    var ctx = document.getElementById('945').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -313,12 +313,12 @@ https://github.com/alex-shpak/hugo-book
 </tr>
 </tbody>
 </table>
-<p>Our approach to using TorchScript and TensorRT together in a DeepStream pipeline will be to follow a hybrid model, where we always have two sequential parts of the model. The first part will be compiled in TensorRT and will then pass it&rsquo;s results to the last part run in TorchScript.</p>
+<p>Our approach to using TorchScript and TensorRT together in a DeepStream pipeline will be to construct a hybrid model with two sequential components — a TensorRT frontend passing results to a TorchScript backend which completes the calculation.</p>
 <h3 id="hybrid-deepstream-pipeline">
   Hybrid DeepStream Pipeline
   <a class="anchor" href="#hybrid-deepstream-pipeline">#</a>
 </h3>
-<p>Our hybrid pipeline will use the <code>nvinfer</code> element — from Nvidia&rsquo;s DeepStream — to serve a TensorRT-compiled form of the SSD300 model directly in the media pipeline. Since TensorRT cannot compile the entire model (due to unsupported <a href="https://onnx.ai/">ONNX</a> ops) we&rsquo;ll run the remaining operations as a TorchScript module (via <a href="https://docs.nvidia.com/metropolis/deepstream/plugin-manual/index.html#page/DeepStream%20Plugins%20Development%20Guide/deepstream_plugin_details.html#wwpID0E0TDB0HA">the <code>parse-bbox-func-name</code> hook</a>).</p>
+<p>Our hybrid pipeline will eventually use the <code>nvinfer</code> element of DeepStream to serve a TensorRT-compiled form of the SSD300 model directly in the media pipeline. Since TensorRT cannot compile the entire model (due to unsupported <a href="https://onnx.ai/">ONNX</a> ops) we&rsquo;ll run the remaining operations as a TorchScript module (via <a href="https://docs.nvidia.com/metropolis/deepstream/plugin-manual/index.html#page/DeepStream%20Plugins%20Development%20Guide/deepstream_plugin_details.html#wwpID0E0TDB0HA">the <code>parse-bbox-func-name</code> hook</a>).</p>
 <p>However, the first pipeline will be the simplest possible while still following the hybrid pattern. The TensorRT model does no processing and simply passes frames to the TorchScript model, which does all preprocessing, inference, and postprocessing. 0% TensorRT, 100% TorchScript.</p>
 <p>This pipeline runs at 110 FPS without tracing overhead. However, this TorchScript model has already been converted to <code>fp16</code> precision so a direct comparison to the Python-based pipeline is a bit misleading.</p>
 
@@ -327,11 +327,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 275px;margin: 0 auto">
-    <canvas id="833"></canvas>
+    <canvas id="902"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('833').getContext('2d');
+    var ctx = document.getElementById('902').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -373,8 +373,8 @@ https://github.com/alex-shpak/hugo-book
 <li><code>nvinfer</code> sends batches of frames to the configured model engine (our empty TensorRT component) — great.</li>
 <li><code>nvinfer</code> then sends the model output <em>frame by frame</em> to the postprocessing hook (our TorchScript component).</li>
 </ul>
-<p>Since we have put our entire model into a TorchScript postprocessing hook we are now processing frame by frame with no batching, and this is causing very low GPU utilisation.</p>
-<p>We are using DeepStream contrary to the design, but to build a truly hybrid TensorRT+TorchScript pipeline we <strong>need</strong> batched postprocessing.</p>
+<p>Since we have put our entire model into a TorchScript postprocessing hook we are now processing frame by frame with no batching, and this is causing very low GPU utilisation. (This is why we are comparing against a Python pipeline with no batching).</p>
+<p><strong>We are using DeepStream contrary to the design</strong>, but to build a truly hybrid TensorRT and TorchScript pipeline we need batched postprocessing.</p>
 <blockquote class="book-hint nvidia">
   <p><strong>DeepStream Limitation: Postprocessing Hooks are Frame-by-Frame</strong></p>
 <p>The design of <code>nvinfer</code> assumes model output will be postprocessed frame-by-frame. This makes writing postprocessing code a tiny bit easier but is inefficient by default. Preprocessing, inference and postprocessing logic should always assume a batch dimension is present.</p>
@@ -421,7 +421,7 @@ https://github.com/alex-shpak/hugo-book
 <li>Model output tensors are no-longer copied to host, but are left on the device.</li>
 </ul>
 <blockquote class="book-hint nvidia">
-  These <code>nvinfer</code> changes are unreleased and are not present in the companion repository (<a href="https://github.com/pbridger/deepstream-video-pipeline">github.com/pbridger/deepstream-video-pipeline</a>) because they are clearly derivative of <code>nvinfer</code> and I&rsquo;m unsure of the licensing. Nvidia people, feel free to <!-- raw HTML omitted -->get in touch<!-- raw HTML omitted -->!
+  These <code>nvinfer</code> changes are unreleased and are not present in the companion repository (<a href="https://github.com/pbridger/deepstream-video-pipeline">github.com/pbridger/deepstream-video-pipeline</a>) because they are clearly derivative of <code>nvinfer</code> and I&rsquo;m unsure of the licensing. Nvidia people, feel free to get in touch: <a href="mailto:paul@paulbridger.com">paul@paulbridger.com</a>.
 </blockquote>
 
 <p>With hacked DeepStream and no model changes at all this pipeline now hits 350 FPS when measured with no tracing overhead. This is up from 110 FPS with regular DeepStream. I think we deserve a chart:</p>
@@ -431,11 +431,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 300px;margin: 0 auto">
-    <canvas id="666"></canvas>
+    <canvas id="956"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('666').getContext('2d');
+    var ctx = document.getElementById('956').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(68, 51, 153, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -501,11 +501,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 325px;margin: 0 auto">
-    <canvas id="708"></canvas>
+    <canvas id="238"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('708').getContext('2d');
+    var ctx = document.getElementById('238').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti',\n            'TensorRT'\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650,\n                920\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -620,11 +620,11 @@ https://github.com/alex-shpak/hugo-book
 
 
 <div style="width: 100%;height: 350px;margin: 0 auto">
-    <canvas id="675"></canvas>
+    <canvas id="164"></canvas>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <script type="text/javascript">
-    var ctx = document.getElementById('675').getContext('2d');
+    var ctx = document.getElementById('164').getContext('2d');
     var options = eval("(" + "\n{\n    type: 'horizontalBar',\n    data: {\n        labels: [\n            'Baseline',\n            'Fix Fine-Grained Synchronization',\n            'Postprocessing on GPU',\n            'Normal DeepStream',\n            'Batch Processing',\n            'Half Precision Inference',\n            'Decode Video Direct to Device',\n            'Hacked DeepStream',\n            'Concurrency - 1x2080Ti',\n            'Concurrency - 2x2080Ti',\n            'TensorRT - 1x2080Ti',\n            'TensorRT - 2x2080Ti',\n        ],\n        datasets: [{\n            label: 'Bar Chart',\n            data: [\n                9,\n                16,\n                80,\n                110,\n                125,\n                185,\n                235,\n                350,\n                350,\n                650,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n}" + ")");
     new Chart(ctx, options);
 </script>
@@ -634,15 +634,15 @@ https://github.com/alex-shpak/hugo-book
   <a class="anchor" href="#conclusion">#</a>
 </h2>
 <p>We have a pipeline capable of doing 1840 FPS of useful object detection throughput, and this is phenomenal. This should convincingly demonstrate the effectiveness of these technologies working together.</p>
-<p>Despite the huge gains delivered by TensorRT optimization and the efficient scalability of DeepStream, <strong>TorchScript is the unsung hero of this story for me</strong>. The ability to easily export any Pytorch model without worrying about missing layers or operations is huge. Without TorchScript and <code>libtorch</code> I would still be writing TensorRT plugins.</p>
+<p>Despite the huge gains delivered by TensorRT optimization and the efficient scalability of DeepStream, <strong>TorchScript is the unsung hero of this story</strong>. The ability to easily export any Pytorch model without worrying about missing layers or operations is huge. Without TorchScript and <code>libtorch</code> I would still be writing TensorRT plugins.</p>
 <h3 id="caveats-limitations-and-excuses">
   Caveats, Limitations and Excuses
   <a class="anchor" href="#caveats-limitations-and-excuses">#</a>
 </h3>
-<p>The Gstreamer/DeepStream pipelines used above do not reflect 100% realistic usage. If you review the pipeline diagrams (eg. <a href="
+<p>The Gstreamer/DeepStream pipelines used above do not reflect 100% realistic usage. If you review the pipeline diagrams (e.g. <a href="
 /posts/video-analytics-deepstream-pipeline/logs/ds_3_2gpu_batch16_device.pipeline.dot.png
 
-">ds_3_2gpu_batch16_device.pipeline.dot.png</a>) you&rsquo;ll see a single file is being read and piped into the <code>nvstreammux</code> component many times. This is how you would handle multiple concurrent media streams into a single inference engine, but the real reason I&rsquo;ve done this is to work around a <a href="https://forums.developer.nvidia.com/t/ds-5-0-1-nvstreammux-batch-size-bug/157039">limitation of <code>nvstreammux</code></a> around batching. Read the linked issue for the details, but it is fair to say that <code>nvstreammux</code> is not intended for assembling efficiently-sized batches when processing a small number of input streams.</p>
+">ds_3_2gpu_batch16_device.pipeline.dot.png</a>) you&rsquo;ll see a single file is being read and piped into the <code>nvstreammux</code> component many times. This is how you would handle multiple concurrent media streams into a single inference engine, but the real reason I&rsquo;ve done this is to work around a <a href="https://forums.developer.nvidia.com/t/ds-5-0-1-nvstreammux-batch-size-bug/157039">limitation of <code>nvstreammux</code></a> to do with batching. Read the linked issue for the details, but it is fair to say that <code>nvstreammux</code> is not intended for assembling efficiently-sized batches when processing a small number of input streams.</p>
 <p>Also as noted above, my &ldquo;Hacked DeepStream&rdquo; code is not yet publically available. I&rsquo;ll work to tidy this up and if I&rsquo;m sure of the licensing situation I&rsquo;ll make this available.</p>
 <p>Finally the code in the <a href="https://github.com/pbridger/deepstream-video-pipeline">associated repository</a> is not polished tutorial code, it is hacky research code so caveat emptor.</p>
 </p>
