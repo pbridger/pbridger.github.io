@@ -291,11 +291,11 @@ https://github.com/alex-shpak/hugo-book
   Device Pinning
   <a class="anchor" href="#device-pinning">#</a>
 </h2>
-<p>If you find yourself using <code>torch.jit.trace</code> on some code, you&rsquo;ll have to actively deal with some of the gotchas or face performance and portability consequences. Besides addressing any warnings Pytorch emits, you&rsquo;ll also need to keep an eye out for device pinning. Just like <code>torch.jit.trace</code> can record and freeze conditional logic, it will also trace and make constant the values resulting from this logic — this can include device constants.</p>
+<p>If you find yourself using <code>torch.jit.trace</code> on some code, you&rsquo;ll have to actively deal with some of the gotchas or face performance and portability consequences. Besides addressing any warnings Pytorch emits, you&rsquo;ll also need to keep an eye out for device pinning. Just like <code>torch.jit.trace</code> records and freezes conditional logic, it will also trace and make constant the values resulting from this logic — this can include device constants.</p>
 <p>Using this sample code:</p>
 <div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span></code></pre></div>
-<p>If we trace while executing on CPU or GPU we get this TorchScript:</p>
+<p>If we trace while executing on CPU or GPU we get this TorchScript (scroll to the right on mobile):</p>
 <div class="highlight"><pre class="chroma"><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
   <span class="n">_0</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">prim</span><span class="o">.</span><span class="n">NumToTensor</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
   <span class="n">_1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">annotate</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="n">_0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&#34;cpu&#34;</span><span class="p">),</span> <span class="n">pin_memory</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
@@ -329,7 +329,7 @@ https://github.com/alex-shpak/hugo-book
 
 </blockquote>
 
-<p>An Nsight Systems view of the problem can look like this:</p>
+<p>An example of the problem looks like this in Nsight Systems:</p>
 
 
 
@@ -419,12 +419,12 @@ https://github.com/alex-shpak/hugo-book
         <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">X</span><span class="o">.</span><span class="n">size</span><span class="p">())</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">repeat</span><span class="p">,</span> <span class="o">*</span><span class="n">X</span><span class="o">.</span><span class="n">size</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span></code></pre></div>
 <p>N.B. The above code is only equivalent to <code>repeat_interleave(X, dim=0)</code> though it can be adapted for any fixed dim.</p>
-<p>The same approach can be taken to dealing with incomplete support in TensorRT, which is far more prevalent in my experience.</p>
+<p>The same approach can be taken to work around incomplete support in TensorRT, which is far more prevalent in my experience.</p>
 <h2 id="conclusion">
   Conclusion
   <a class="anchor" href="#conclusion">#</a>
 </h2>
-<p>Efficient and portable Pytorch production deployment used to be almost impossible, but the introduction and continued evolution of TorchScript has been great for the ecosystem. There are still a few rough edges and tricks, and I hope you&rsquo;ve found something new or useful from the topics above.</p>
+<p>Efficient and portable Pytorch production deployment used to be almost impossible, but the introduction and continued evolution of TorchScript has been great for the ecosystem. There are still a few rough edges and tricks, and I hope you&rsquo;ve found something new or useful in the topics above.</p>
 <p>If there is some major concern or problem you&rsquo;re having with TorchScript or Pytorch production deployment please get in touch — I&rsquo;m always looking for new areas to research.</p>
 </p>
 </article>
