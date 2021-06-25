@@ -369,7 +369,7 @@ def build_onnx(args):
         outputs=[ts['num_detections'], ts['nms_bboxes'], ts['nms_probs'], ts['nms_classes']]
     )
 
-    graph.cleanup()
+    graph.cleanup(remove_unused_node_outputs=True)
     graph.toposort()
 
     onnx_module = gs.export_onnx(graph)
