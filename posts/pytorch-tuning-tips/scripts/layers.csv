@@ -1,0 +1,6 @@
+model-arch,model-flops-total,model-flops-addmm,model-flops-conv,model-flops-batch_norm,model-flops-layer_norm,model-flops-linear,model-flops-matmul,model-flops-adaptive_avg_pool2d,model-layers-linear,model-layers-conv1d,model-layers-conv2d,model-layers-dropout,model-layers-layernorm,model-layers-batchnorm2d,model-layers-relu,model-layers-maxpool2d,model-layers-adaptiveavgpool2d,model-layers-newgeluactivation,model-layers-embedding
+resnet18,152671879168,0,151598923776,1038090240,0,32768000,0,2097152,1,0,20,0,0,20,9,1,1,0,0
+resnet50,346435878912,0,341651226624,4645191680,0,131072000,0,8388608,2,0,73,0,0,73,26,2,2,0,0
+distilgpt2,603221262336,315277443072,0,0,370606080,286546919424,1026293760,0,3,24,73,19,13,73,26,2,2,6,2
+bert-base-uncased,3039486148608,0,0,0,2773155840,3026622283776,10090708992,0,77,24,73,56,39,73,26,2,2,6,5
+bert-large-uncased,9319341359104,0,0,0,7110656000,9285322145792,26908557312,0,223,24,73,129,89,73,26,2,2,6,8

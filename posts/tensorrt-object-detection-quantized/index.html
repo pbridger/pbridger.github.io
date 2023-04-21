@@ -1,24 +1,211 @@
-<!doctype html><html lang=en dir=ltr><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="This article is a deep dive into the techniques needed to get SSD300 object detection throughput to 2530 FPS. We will rewrite Pytorch model code, perform ONNX graph surgery, optimize a TensorRT plugin and finally we&rsquo;ll quantize the model to an 8-bit representation. We will also examine divergence from the accuracy of the full-precision model."><meta name=theme-color content="#FFFFFF"><meta property="og:title" content="Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization"><meta property="og:description" content="This article is a deep dive into the techniques needed to get SSD300 object detection throughput to 2530 FPS. We will rewrite Pytorch model code, perform ONNX graph surgery, optimize a TensorRT plugin and finally we&rsquo;ll quantize the model to an 8-bit representation. We will also examine divergence from the accuracy of the full-precision model."><meta property="og:type" content="article"><meta property="og:url" content="https://paulbridger.com/posts/tensorrt-object-detection-quantized/"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-12-31T08:43:23+02:00"><meta property="article:modified_time" content="2020-12-31T08:43:23+02:00"><title>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization | paulbridger.com</title><link rel=manifest href=/manifest.json><link rel=icon href=/favicon.png type=image/x-icon><link rel=stylesheet href=/book.min.23da3cf037fbe70fe3726e8cd507f54b2e18ea698dec0552430692be6eb655d8.css integrity="sha256-I9o88Df75w/jcm6M1Qf1Sy4Y6mmN7AVSQwaSvm62Vdg=" crossorigin=anonymous><script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script><script async src=https://www.google-analytics.com/analytics.js></script><meta name=twitter:card content="summary"><meta name=twitter:site content="@paul_bridger"><meta name=twitter:title content="Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization"><meta name=twitter:image content="https://paulbridger.com/posts/tensorrt-object-detection-quantized/images/gpumon.png"></head><body dir=ltr><input type=checkbox class="hidden toggle" id=menu-control>
-<input type=checkbox class="hidden toggle" id=toc-control><main class="container flex"><aside class=book-menu><div class=book-menu-content><nav><h2 class=book-brand><a href=/><span>paulbridger.com</span></a></h2><ul><li><a href=https://paulbridger.com/posts/nsight-systems-systematic-optimization/>Solving Machine Learning Performance Anti-Patterns: a Systematic Approach</a></li><li><a href=https://paulbridger.com/posts/video-analytics-pytorch-pipeline/>A Simple and Flexible Pytorch Video Pipeline</a></li><li><a href=https://paulbridger.com/posts/video-analytics-pipeline-tuning/>Object Detection from 9 FPS to 650 FPS in 6 Steps</a></li><li><a href=https://paulbridger.com/posts/video-analytics-deepstream-pipeline/>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a></li><li><a href=https://paulbridger.com/posts/tensorrt-object-detection-quantized/ class=active>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a></li><li><a href=https://paulbridger.com/posts/mastering-torchscript/>Mastering TorchScript: Tracing vs Scripting, Device Pinning, Direct Graph Modification</a></li><li><a href=https://paulbridger.com/posts/consulting/>Consulting / Hire Me</a></li><li><a href=https://paulbridger.com/posts/about/>About Paul Bridger</a></li></ul></nav><script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script></div></aside><div class=book-page><header class=book-header><div class="flex align-center justify-between"><label for=menu-control><img src=/svg/menu.svg class=book-icon alt=Menu></label>
+<!doctype html><html lang=en dir=ltr>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="This article is a deep dive into the techniques needed to get SSD300 object detection throughput to 2530 FPS. We will rewrite Pytorch model code, perform ONNX graph surgery, optimize a TensorRT plugin and finally we&rsquo;ll quantize the model to an 8-bit representation. We will also examine divergence from the accuracy of the full-precision model.">
+<meta name=theme-color content="#FFFFFF"><meta property="og:title" content="Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization">
+<meta property="og:description" content="This article is a deep dive into the techniques needed to get SSD300 object detection throughput to 2530 FPS. We will rewrite Pytorch model code, perform ONNX graph surgery, optimize a TensorRT plugin and finally we&rsquo;ll quantize the model to an 8-bit representation. We will also examine divergence from the accuracy of the full-precision model.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://paulbridger.com/posts/tensorrt-object-detection-quantized/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2020-12-31T08:43:23+02:00">
+<meta property="article:modified_time" content="2020-12-31T08:43:23+02:00">
+<title>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization | paulbridger.com</title>
+<link rel=manifest href=/manifest.json>
+<link rel=icon href=/favicon.png type=image/x-icon>
+<link rel=stylesheet href=/book.min.b5056d4fbae4a365a3e7a6f0af8a29daf564e71fa285cacf5f41e0c78741630d.css integrity="sha256-tQVtT7rko2Wj56bwr4op2vVk5x+ihcrPX0Hgx4dBYw0=" crossorigin=anonymous>
+<script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script>
+<script async src=https://www.google-analytics.com/analytics.js></script>
+<meta name=twitter:card content="summary">
+<meta name=twitter:site content="@paul_bridger">
+<meta name=twitter:title content="Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization">
+<meta name=twitter:image content="https://paulbridger.com/posts/tensorrt-object-detection-quantized/images/gpumon.png">
+</head>
+<body dir=ltr>
+<input type=checkbox class="hidden toggle" id=menu-control>
+<input type=checkbox class="hidden toggle" id=toc-control>
+<main class="container flex">
+<aside class=book-menu>
+<div class=book-menu-content>
+<nav>
+<h2 class=book-brand>
+<a href=/><span>paulbridger.com</span>
+</a>
+</h2>
+<ul>
+<li>
+<a href=https://paulbridger.com/posts/pytorch-tuning-tips/>PyTorch Performance Features and How They Interact</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/nsight-systems-systematic-optimization/>Solving Machine Learning Performance Anti-Patterns: a Systematic Approach</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pytorch-pipeline/>A Simple and Flexible Pytorch Video Pipeline</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pipeline-tuning/>Object Detection from 9 FPS to 650 FPS in 6 Steps</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-deepstream-pipeline/>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/tensorrt-object-detection-quantized/ class=active>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/mastering-torchscript/>Mastering TorchScript: Tracing vs Scripting, Device Pinning, Direct Graph Modification</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/consulting/>Consulting / Hire Me</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/about/>About Paul Bridger</a>
+</li>
+</ul>
+</nav>
+<script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+</div>
+</aside>
+<div class=book-page>
+<header class=book-header>
+<div class="flex align-center justify-between">
+<label for=menu-control>
+<img src=/svg/menu.svg class=book-icon alt=Menu>
+</label>
 <strong>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</strong>
-<label for=toc-control><img src=/svg/toc.svg class=book-icon alt="Table of Contents"></label></div><aside class="hidden clearfix"><div class=book-toc-div><nav id=TableOfContents><ul><li><a href=#intro>Intro</a><ul><li><a href=#on-optimizing-arbitrary-numbers>On Optimizing Arbitrary Numbers</a></li></ul></li><li><a href=#stage-0-deepstream-baseline>Stage 0: DeepStream Baseline</a></li><li><a href=#stage-1-end-to-end-tensorrt>Stage 1: End-to-End TensorRT</a><ul><li><a href=#11-rewriting-subscripted-tensor-assignment>1.1 Rewriting Subscripted Tensor Assignment</a></li><li><a href=#12-tensorrt-and-masking>1.2 TensorRT and Masking</a></li><li><a href=#13-replacing-masking-and-nms-with-batchednmsplugin>1.3 Replacing Masking and NMS with <code>batchedNMSPlugin</code></a></li><li><a href=#14-results-and-analysis>1.4 Results and Analysis</a></li></ul></li><li><a href=#stage-2-forking-tensorrt>Stage 2: Forking TensorRT</a></li><li><a href=#stage-3-8-bit-quantization->Stage 3: 8-Bit Quantization 👾</a></li><li><a href=#conclusion>Conclusion</a></li></ul></nav><nav></nav></div></aside></header><article class=markdown><h1><a href=/posts/tensorrt-object-detection-quantized/>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a></h1><h5>December 31, 2020</h5><div><a href=/categories/visual-analytics/>Visual Analytics</a>,
-<a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a></div><div><a href=/tags/ssd300/>SSD300</a>,
+<label for=toc-control>
+<img src=/svg/toc.svg class=book-icon alt="Table of Contents">
+</label>
+</div>
+<aside class="hidden clearfix">
+<div class=book-toc-div>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#intro>Intro</a>
+<ul>
+<li><a href=#on-optimizing-arbitrary-numbers>On Optimizing Arbitrary Numbers</a></li>
+</ul>
+</li>
+<li><a href=#stage-0-deepstream-baseline>Stage 0: DeepStream Baseline</a></li>
+<li><a href=#stage-1-end-to-end-tensorrt>Stage 1: End-to-End TensorRT</a>
+<ul>
+<li><a href=#11-rewriting-subscripted-tensor-assignment>1.1 Rewriting Subscripted Tensor Assignment</a></li>
+<li><a href=#12-tensorrt-and-masking>1.2 TensorRT and Masking</a></li>
+<li><a href=#13-replacing-masking-and-nms-with-batchednmsplugin>1.3 Replacing Masking and NMS with <code>batchedNMSPlugin</code></a></li>
+<li><a href=#14-results-and-analysis>1.4 Results and Analysis</a></li>
+</ul>
+</li>
+<li><a href=#stage-2-forking-tensorrt>Stage 2: Forking TensorRT</a></li>
+<li><a href=#stage-3-8-bit-quantization->Stage 3: 8-Bit Quantization 👾</a></li>
+<li><a href=#conclusion>Conclusion</a></li>
+</ul>
+</nav>
+<nav>
+</nav>
+</div>
+</aside>
+</header>
+<article class=markdown>
+<h1>
+<a href=/posts/tensorrt-object-detection-quantized/>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a>
+</h1>
+<h5>December 31, 2020</h5>
+<div>
+<a href=/categories/visual-analytics/>Visual Analytics</a>,
+<a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a>
+</div>
+<div>
+<a href=/tags/ssd300/>SSD300</a>,
 <a href=/tags/pytorch/>Pytorch</a>,
 <a href=/tags/object-detection/>Object Detection</a>,
 <a href=/tags/optimization/>Optimization</a>,
 <a href=/tags/tensorrt/>TensorRT</a>,
 <a href=/tags/quantization/>Quantization</a>,
 <a href=/tags/onnx/>ONNX</a>,
-<a href=/tags/nsight-systems/>Nsight Systems</a></div><h2 id=intro>Intro
-<a class=anchor href=#intro>#</a></h2><p>My previous post <a href=/posts/video-analytics-deepstream-pipeline>Object Detection at 1840 FPS</a> made some readers wonder who would need to detect anything at 1840 FPS, but my good friend and &ldquo;performance geek&rdquo; <a href=https://tanelpoder.com/>Tanel Põder</a> had a different response:</p><blockquote><p>Nice article, I wonder if you could get to 2000 FPS?</p></blockquote><p>Challenge accepted.</p><p>This article is a deep dive into the techniques needed to get there. We will rewrite Pytorch model code, perform <a href=https://github.com/NVIDIA/TensorRT/tree/master/tools/onnx-graphsurgeon>ONNX graph surgery</a>, optimize <a href=https://github.com/NVIDIA/TensorRT/tree/master/plugin/batchedNMSPlugin>a TensorRT plugin</a> and finally we&rsquo;ll quantize the model to bits (to 8 bit precision, that is). We will also keep track of divergence from full-precision accuracy with the COCO2017 validation dataset.</p><p>Code supporting this article can be found here: <a href=https://github.com/pbridger/tensorrt-ssd300-8bit-quantized>github.com/pbridger/tensorrt-ssd300-8bit-quantized</a>.</p><p>A quick preview of the final results:</p><div class=book-tabs><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-0 checked>
-<label for=tabs-Preview-0>FP32 TensorRT</label><div class="book-tabs-content markdown-inner"><img src=files/ssd300.fp32.b16.k256.trt.svg></div><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-1>
-<label for=tabs-Preview-1>FP16 TensorRT</label><div class="book-tabs-content markdown-inner"><img src=files/ssd300.fp16.b16.k256.trt.svg></div><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-2>
-<label for=tabs-Preview-2>INT8 TensorRT</label><div class="book-tabs-content markdown-inner"><img src=files/ssd300.int8.b16.k256.trt.svg></div><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-3>
-<label for=tabs-Preview-3>All Results</label><div class="book-tabs-content markdown-inner"><div style="width:100%;height:275px;margin:0 auto"><canvas id=150></canvas></div><script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script><script type=text/javascript>var ctx=document.getElementById('150').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'End-to-End FP16 TensorRT',\n            'End-to-End INT8 TensorRT',\n            'TensorRT DS - 2x2080Ti',\n            'End-to-End INT8 TensorRT - 2x2080Ti'\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'FP16 TRT',\n            'INT8 TRT',\n            'TRT DS 2xGPU',\n            'INT8 TRT 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                940,\n                1240,\n                1840,\n                2530\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script></div></div><p>So how do we get to 2000 FPS? My previous post already brought the big guns — a <a href=/posts/video-analytics-deepstream-pipeline>TensorRT-optimized DeepStream pipeline</a> was needed to hit 1840 FPS running on 2x Nvidia 2080Ti cards. This time we will abandon TorchScript and <a href=https://developer.nvidia.com/deepstream-sdk>DeepStream</a>, and we&rsquo;ll put in the work to fully embrace TensorRT model compilation and execution.</p><h3 id=on-optimizing-arbitrary-numbers>On Optimizing Arbitrary Numbers
-<a class=anchor href=#on-optimizing-arbitrary-numbers>#</a></h3><p>1840 FPS, 2000 FPS, 2530 FPS — there is nothing special about any of these numbers, they are all hardware, resolution and model dependent. These optimization articles are about the practical usage of cutting-edge tools and techniques to achieve ambitious project goals or unlock cost savings.</p><p>Tuning a pipeline for throughput maximizes hardware utilization and efficiency in the datacenter, and it allows us to deploy larger models or more complex systems in compute-limited contexts (think IoT, embedded and mobile). It&rsquo;s also just fun to explore the limits of powerful tools!</p><p>Let&rsquo;s get started with a baseline from the <a href=/posts/video-analytics-deepstream-pipeline>previous article</a>.</p><h2 id=stage-0-deepstream-baseline>Stage 0: DeepStream Baseline
-<a class=anchor href=#stage-0-deepstream-baseline>#</a></h2><p>To recap, we got peak throughput with the DeepStream pipeline by using a hybrid model — a TensorRT-optimized SSD300 front-end with postprocessing code running in TorchScript in the libtorch runtime. All processing on GPU, of course. Here&rsquo;s a reminder of some of the throughput milestones from the last article:</p><div style="width:100%;height:150px;margin:0 auto"><canvas id=497></canvas></div><script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script><script type=text/javascript>var ctx=document.getElementById('497').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'Hacked DeepStream',\n            'TensorRT - 1x2080Ti',\n            'TensorRT - 2x2080Ti',\n        ] : [\n            'Normal DS',\n            'Hacked DS',\n            'TRT 1xGPU',\n            'TRT 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                350,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n            ],\n            backgroundColor: [\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    },\n    onResize: (function(c, size) {\n        console.log(window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth);\n    })(1, 2)\n})");new Chart(ctx,options)</script><p>Why did we need TorchScript? Several common object-detection postprocessing operations — including thresholding and non-max-suppression (NMS) — can&rsquo;t be seamlessly exported from Pytorch to ONNX and compiled with TensorRT. Leaving these operations in TorchScript allowed us to get great performance without rewriting any model code or creating TensorRT plugins.</p><p>Looking at the performance trace from Nsight Systems, we can see the TorchScript postprocessing comes in just under 10 ms. When we compiled the inference step with TensorRT we saw around 43 ms of TorchScript turn into about 16 ms equivalent processing — so anything executing in TorchScript seems ripe for optimization.</p><p>Here&rsquo;s what it looked like in Nsight Systems:</p><a href=/posts/tensorrt-object-detection-quantized/images/ds_80pc_tensorrt_hacked_ds_two_batch.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/ds_80pc_tensorrt_hacked_ds_two_batch_hudc758a7e69d7157937e6a1d7caab6946_489589_896x520_fill_box_top_2.png width=896 height=520><figcaption><small></small></figcaption></figure></a><p>Let&rsquo;s eliminate the TorchScript postprocessing and get the entire model running end-to-end in TensorRT.</p><h2 id=stage-1-end-to-end-tensorrt>Stage 1: End-to-End TensorRT
-<a class=anchor href=#stage-1-end-to-end-tensorrt>#</a></h2><p>The baseline Pytorch SSD300 model (including postprocessing) cannot be easily compiled with TensorRT for several reasons, all of which involve missing (or impossible) support for tensor operations:</p><ul><li><p>Subscripted tensor assignment results in <code>ScatterND</code> (indexed assignment) nodes in ONNX.</p></li><li><p>Score thresholding uses a mask operation, which cannot be expressed in the fixed-dimension world of TensorRT.</p></li><li><p>Torchvision&rsquo;s batched non-max suppression (NMS) operation has no exact equivalent in TensorRT.</p></li></ul><p>We can fix the first by tweaking model code and re-exporting to ONNX, but to fix the other issues we&rsquo;ll have to modify the ONNX computational graph — replacing these operations with a TensorRT plugin.</p><h3 id=11-rewriting-subscripted-tensor-assignment>1.1 Rewriting Subscripted Tensor Assignment
-<a class=anchor href=#11-rewriting-subscripted-tensor-assignment>#</a></h3><p>The baseline postprocessing contains some bounding-box rescaling code:</p><div class=highlight><pre class=chroma><code class=language-python data-lang=python>        <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>scale_xy</span> <span class=o>*</span> <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span>
+<a href=/tags/nsight-systems/>Nsight Systems</a>
+</div>
+<h2 id=intro>
+Intro
+<a class=anchor href=#intro>#</a>
+</h2>
+<p>My previous post <a href=/posts/video-analytics-deepstream-pipeline>Object Detection at 1840 FPS</a> made some readers wonder who would need to detect anything at 1840 FPS, but my good friend and &ldquo;performance geek&rdquo; <a href=https://tanelpoder.com/>Tanel Põder</a> had a different response:</p>
+<blockquote>
+<p>Nice article, I wonder if you could get to 2000 FPS?</p>
+</blockquote>
+<p>Challenge accepted.</p>
+<p>This article is a deep dive into the techniques needed to get there. We will rewrite Pytorch model code, perform <a href=https://github.com/NVIDIA/TensorRT/tree/master/tools/onnx-graphsurgeon>ONNX graph surgery</a>, optimize <a href=https://github.com/NVIDIA/TensorRT/tree/master/plugin/batchedNMSPlugin>a TensorRT plugin</a> and finally we&rsquo;ll quantize the model to bits (to 8 bit precision, that is). We will also keep track of divergence from full-precision accuracy with the COCO2017 validation dataset.</p>
+<p>Code supporting this article can be found here: <a href=https://github.com/pbridger/tensorrt-ssd300-8bit-quantized>github.com/pbridger/tensorrt-ssd300-8bit-quantized</a>.</p>
+<p>A quick preview of the final results:</p>
+<div class=book-tabs><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-0 checked>
+<label for=tabs-Preview-0>FP32 TensorRT</label>
+<div class="book-tabs-content markdown-inner">
+<img src=files/ssd300.fp32.b16.k256.trt.svg>
+</div><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-1>
+<label for=tabs-Preview-1>FP16 TensorRT</label>
+<div class="book-tabs-content markdown-inner">
+<img src=files/ssd300.fp16.b16.k256.trt.svg>
+</div><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-2>
+<label for=tabs-Preview-2>INT8 TensorRT</label>
+<div class="book-tabs-content markdown-inner">
+<img src=files/ssd300.int8.b16.k256.trt.svg>
+</div><input type=radio class=toggle name=tabs-Preview id=tabs-Preview-3>
+<label for=tabs-Preview-3>All Results</label>
+<div class="book-tabs-content markdown-inner">
+<div style="width:100%;height:275px;margin:0 auto">
+<canvas id=276></canvas>
+</div>
+<script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script>
+<script type=text/javascript>var ctx=document.getElementById('276').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'End-to-End FP16 TensorRT',\n            'End-to-End INT8 TensorRT',\n            'TensorRT DS - 2x2080Ti',\n            'End-to-End INT8 TensorRT - 2x2080Ti'\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'FP16 TRT',\n            'INT8 TRT',\n            'TRT DS 2xGPU',\n            'INT8 TRT 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                940,\n                1240,\n                1840,\n                2530\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script>
+</div></div>
+<p>So how do we get to 2000 FPS? My previous post already brought the big guns — a <a href=/posts/video-analytics-deepstream-pipeline>TensorRT-optimized DeepStream pipeline</a> was needed to hit 1840 FPS running on 2x Nvidia 2080Ti cards. This time we will abandon TorchScript and <a href=https://developer.nvidia.com/deepstream-sdk>DeepStream</a>, and we&rsquo;ll put in the work to fully embrace TensorRT model compilation and execution.</p>
+<h3 id=on-optimizing-arbitrary-numbers>
+On Optimizing Arbitrary Numbers
+<a class=anchor href=#on-optimizing-arbitrary-numbers>#</a>
+</h3>
+<p>1840 FPS, 2000 FPS, 2530 FPS — there is nothing special about any of these numbers, they are all hardware, resolution and model dependent. These optimization articles are about the practical usage of cutting-edge tools and techniques to achieve ambitious project goals or unlock cost savings.</p>
+<p>Tuning a pipeline for throughput maximizes hardware utilization and efficiency in the datacenter, and it allows us to deploy larger models or more complex systems in compute-limited contexts (think IoT, embedded and mobile). It&rsquo;s also just fun to explore the limits of powerful tools!</p>
+<p>Let&rsquo;s get started with a baseline from the <a href=/posts/video-analytics-deepstream-pipeline>previous article</a>.</p>
+<h2 id=stage-0-deepstream-baseline>
+Stage 0: DeepStream Baseline
+<a class=anchor href=#stage-0-deepstream-baseline>#</a>
+</h2>
+<p>To recap, we got peak throughput with the DeepStream pipeline by using a hybrid model — a TensorRT-optimized SSD300 front-end with postprocessing code running in TorchScript in the libtorch runtime. All processing on GPU, of course. Here&rsquo;s a reminder of some of the throughput milestones from the last article:</p>
+<div style="width:100%;height:150px;margin:0 auto">
+<canvas id=34></canvas>
+</div>
+<script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script>
+<script type=text/javascript>var ctx=document.getElementById('34').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'Hacked DeepStream',\n            'TensorRT - 1x2080Ti',\n            'TensorRT - 2x2080Ti',\n        ] : [\n            'Normal DS',\n            'Hacked DS',\n            'TRT 1xGPU',\n            'TRT 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                350,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n            ],\n            backgroundColor: [\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.25)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    },\n    onResize: (function(c, size) {\n        console.log(window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth);\n    })(1, 2)\n})");new Chart(ctx,options)</script>
+<p>Why did we need TorchScript? Several common object-detection postprocessing operations — including thresholding and non-max-suppression (NMS) — can&rsquo;t be seamlessly exported from Pytorch to ONNX and compiled with TensorRT. Leaving these operations in TorchScript allowed us to get great performance without rewriting any model code or creating TensorRT plugins.</p>
+<p>Looking at the performance trace from Nsight Systems, we can see the TorchScript postprocessing comes in just under 10 ms. When we compiled the inference step with TensorRT we saw around 43 ms of TorchScript turn into about 16 ms equivalent processing — so anything executing in TorchScript seems ripe for optimization.</p>
+<p>Here&rsquo;s what it looked like in Nsight Systems:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/ds_80pc_tensorrt_hacked_ds_two_batch.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/ds_80pc_tensorrt_hacked_ds_two_batch_hudc758a7e69d7157937e6a1d7caab6946_489589_896x520_fill_box_top_3.png width=896 height=520>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>Let&rsquo;s eliminate the TorchScript postprocessing and get the entire model running end-to-end in TensorRT.</p>
+<h2 id=stage-1-end-to-end-tensorrt>
+Stage 1: End-to-End TensorRT
+<a class=anchor href=#stage-1-end-to-end-tensorrt>#</a>
+</h2>
+<p>The baseline Pytorch SSD300 model (including postprocessing) cannot be easily compiled with TensorRT for several reasons, all of which involve missing (or impossible) support for tensor operations:</p>
+<ul>
+<li>
+<p>Subscripted tensor assignment results in <code>ScatterND</code> (indexed assignment) nodes in ONNX.</p>
+</li>
+<li>
+<p>Score thresholding uses a mask operation, which cannot be expressed in the fixed-dimension world of TensorRT.</p>
+</li>
+<li>
+<p>Torchvision&rsquo;s batched non-max suppression (NMS) operation has no exact equivalent in TensorRT.</p>
+</li>
+</ul>
+<p>We can fix the first by tweaking model code and re-exporting to ONNX, but to fix the other issues we&rsquo;ll have to modify the ONNX computational graph — replacing these operations with a TensorRT plugin.</p>
+<h3 id=11-rewriting-subscripted-tensor-assignment>
+1.1 Rewriting Subscripted Tensor Assignment
+<a class=anchor href=#11-rewriting-subscripted-tensor-assignment>#</a>
+</h3>
+<p>The baseline postprocessing contains some bounding-box rescaling code:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python>        <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>scale_xy</span> <span class=o>*</span> <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span>
         <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>:]</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>scale_wh</span> <span class=o>*</span> <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>:]</span>
 
         <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span> <span class=o>=</span> <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span> <span class=o>*</span> <span class=bp>self</span><span class=o>.</span><span class=n>dboxes_xywh</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>:]</span> <span class=o>+</span> <span class=bp>self</span><span class=o>.</span><span class=n>dboxes_xywh</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span>
@@ -33,74 +220,180 @@
         <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>0</span><span class=p>]</span> <span class=o>=</span> <span class=n>l</span>
         <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>1</span><span class=p>]</span> <span class=o>=</span> <span class=n>t</span>
         <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>]</span> <span class=o>=</span> <span class=n>r</span>
-        <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>3</span><span class=p>]</span> <span class=o>=</span> <span class=n>b</span></code></pre></div><p>This code will export to an ONNX graph without issue, but parsing with TensorRT will result in an error: <code>No importer registered for op: ScatterND</code> or <code>getPluginCreator could not find plugin ScatterND</code>.</p><p>We can rewrite the code to avoid generating <code>ScatterND</code> nodes by not using subscript assignment:</p><div class=highlight><pre class=chroma><code class=language-python data-lang=python>    <span class=k>def</span> <span class=nf>rescale_locs</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>locs</span><span class=p>):</span>
+        <span class=n>bboxes_batch</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>3</span><span class=p>]</span> <span class=o>=</span> <span class=n>b</span></code></pre></div>
+<p>This code will export to an ONNX graph without issue, but parsing with TensorRT will result in an error: <code>No importer registered for op: ScatterND</code> or <code>getPluginCreator could not find plugin ScatterND</code>.</p>
+<p>We can rewrite the code to avoid generating <code>ScatterND</code> nodes by not using subscript assignment:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python>    <span class=k>def</span> <span class=nf>rescale_locs</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>locs</span><span class=p>):</span>
         <span class=n>locs</span> <span class=o>*=</span> <span class=bp>self</span><span class=o>.</span><span class=n>scale_xyxywhwh</span>
 
         <span class=n>xy</span> <span class=o>=</span> <span class=n>locs</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span> <span class=o>*</span> <span class=bp>self</span><span class=o>.</span><span class=n>dboxes_xywh</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>:]</span> <span class=o>+</span> <span class=bp>self</span><span class=o>.</span><span class=n>dboxes_xywh</span><span class=p>[:,</span> <span class=p>:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span>
         <span class=n>wh</span> <span class=o>=</span> <span class=n>locs</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>:]</span><span class=o>.</span><span class=n>exp</span><span class=p>()</span> <span class=o>*</span> <span class=bp>self</span><span class=o>.</span><span class=n>dboxes_xywh</span><span class=p>[:,</span> <span class=p>:,</span> <span class=mi>2</span><span class=p>:]</span>
 
         <span class=n>wh_delta</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>cat</span><span class=p>([</span><span class=n>wh</span><span class=p>,</span> <span class=n>wh</span><span class=p>],</span> <span class=n>dim</span><span class=o>=-</span><span class=mi>1</span><span class=p>)</span> <span class=o>*</span> <span class=bp>self</span><span class=o>.</span><span class=n>scale_wh_delta</span>
-        <span class=n>cxycxy</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>cat</span><span class=p>([</span><span class=n>xy</span><span class=p>,</span> <span class=n>xy</span><span class=p>],</span> <span class=n>dim</span><span class=o>=-</span><span class=mi>1</span><span class=p>)</span></code></pre></div><p>Problem solved, this code exports without issue to ONNX and then TensorRT. See <a href>subscript_assignment.py</a> in the repo for an isolated example:</p><div class=book-tabs><input type=radio class=toggle name=tabs-subscript_assignment id=tabs-subscript_assignment-0 checked>
-<label for=tabs-subscript_assignment-0>Code: subscript_assignment.py</label><div class="book-tabs-content markdown-inner"><div class=highlight><pre class=chroma><code class=language-python data-lang=python>    <span class=k>def</span> <span class=nf>forward</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>X</span><span class=p>):</span>
+        <span class=n>cxycxy</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>cat</span><span class=p>([</span><span class=n>xy</span><span class=p>,</span> <span class=n>xy</span><span class=p>],</span> <span class=n>dim</span><span class=o>=-</span><span class=mi>1</span><span class=p>)</span></code></pre></div>
+<p>Problem solved, this code exports without issue to ONNX and then TensorRT. See <a href>subscript_assignment.py</a> in the repo for an isolated example:</p>
+<div class=book-tabs><input type=radio class=toggle name=tabs-subscript_assignment id=tabs-subscript_assignment-0 checked>
+<label for=tabs-subscript_assignment-0>Code: subscript_assignment.py</label>
+<div class="book-tabs-content markdown-inner">
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python>    <span class=k>def</span> <span class=nf>forward</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>X</span><span class=p>):</span>
         <span class=n>X</span><span class=p>[:,</span> <span class=p>:</span><span class=mi>2</span><span class=p>]</span> <span class=o>=</span> <span class=mi>0</span>
         <span class=k>return</span> <span class=n>X</span>
-</code></pre></div></div><input type=radio class=toggle name=tabs-subscript_assignment id=tabs-subscript_assignment-1>
-<label for=tabs-subscript_assignment-1>ONNX Graph</label><div class="book-tabs-content markdown-inner"><a href=/posts/tensorrt-object-detection-quantized/images/subscript_assignment.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/subscript_assignment_hu463f7206af736e81218c08508fc927eb_438088_896x800_fill_box_center_2.png width=896 height=800><figcaption><small></small></figcaption></figure></a></div><input type=radio class=toggle name=tabs-subscript_assignment id=tabs-subscript_assignment-2>
-<label for=tabs-subscript_assignment-2>Export Output</label><div class="book-tabs-content markdown-inner"><div class=highlight><pre class=chroma><code class=language-markdown data-lang=markdown>import sys, io
-import torch
-<span class=hl>import tensorrt as trt
-</span>
-class SubscriptAssign(torch.nn.Module):
-    def <span class=gs>__init__</span>(self):
-        super().__init__()
-
-    def forward(self, X):
-        X[:, :2] = 0
-        return X
-
-
-if <span class=gs>__name__</span> == &#39;__main__&#39;:
-    m = SubscriptAssign()
-    onnx_filename = &#39;models/subscript_assign.onnx&#39;
-
-    print(&#39;exporting SubscriptAssign to&#39;, onnx_filename)
-    torch.onnx.export(</code></pre></div></div></div><h3 id=12-tensorrt-and-masking>1.2 TensorRT and Masking
-<a class=anchor href=#12-tensorrt-and-masking>#</a></h3><p>Masking is essential to efficient SSD postprocessing. It needs to be done before calculating NMS because of the large number of possible detection bounding boxes (over 8000 for each of 81 classes for this model). Without first reducing the candidate boxes the NMS calculation would be hugely expensive.</p><p>However, TensorRT compilation depends on tensor dimensions being known at compile time. TensorRT layer output dimensions are allowed to vary based on input dimensions, but not based on the result of the layer calculation itself. Unfortunately, this is exactly what supporting masking in TensorRT would require.</p><p>Masking in Pytorch will result in <code>NonZero</code> ONNX nodes which cannot be expressed as a TensorRT layer or plugin. TensorRT fails with <code>No importer registered for op: NonZero.</code> or <code>getPluginCreator could not find plugin NonZero</code>. See <a href>masking.py</a> in the repo for an example:</p><div class=book-tabs><input type=radio class=toggle name=tabs-masking id=tabs-masking-0 checked>
-<label for=tabs-masking-0>Code: masking.py</label><div class="book-tabs-content markdown-inner"><div class=highlight><pre class=chroma><code class=language-python data-lang=python>    <span class=k>def</span> <span class=nf>forward</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>X</span><span class=p>):</span>
+</code></pre></div>
+</div><input type=radio class=toggle name=tabs-subscript_assignment id=tabs-subscript_assignment-1>
+<label for=tabs-subscript_assignment-1>ONNX Graph</label>
+<div class="book-tabs-content markdown-inner">
+<a href=/posts/tensorrt-object-detection-quantized/images/subscript_assignment.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/subscript_assignment_hu463f7206af736e81218c08508fc927eb_438088_896x800_fill_box_center_3.png width=896 height=800>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+</div><input type=radio class=toggle name=tabs-subscript_assignment id=tabs-subscript_assignment-2>
+<label for=tabs-subscript_assignment-2>Export Output</label>
+<div class="book-tabs-content markdown-inner">
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-markdown data-lang=markdown>[TensorRT] WARNING: /build/TensorRT/parsers/onnx/onnx2trt_utils.cpp:220: Your ONNX model has been generated with INT64 weights, while TensorRT does not natively support INT64. Attempting to cast down to INT32.
+[TensorRT] WARNING: /build/TensorRT/parsers/onnx/onnx2trt_utils.cpp:246: One or more weights outside the range of INT32 was clamped
+<span class=hl>[TensorRT] ERROR: INVALID_ARGUMENT: getPluginCreator could not find plugin ScatterND version 1
+</span>exporting SubscriptAssign to models/subscript_assign.onnx
+compiling models/subscript_assign.onnx with TensorRT
+</code></pre></div>
+</div></div>
+<h3 id=12-tensorrt-and-masking>
+1.2 TensorRT and Masking
+<a class=anchor href=#12-tensorrt-and-masking>#</a>
+</h3>
+<p>Masking is essential to efficient SSD postprocessing. It needs to be done before calculating NMS because of the large number of possible detection bounding boxes (over 8000 for each of 81 classes for this model). Without first reducing the candidate boxes the NMS calculation would be hugely expensive.</p>
+<p>However, TensorRT compilation depends on tensor dimensions being known at compile time. TensorRT layer output dimensions are allowed to vary based on input dimensions, but not based on the result of the layer calculation itself. Unfortunately, this is exactly what supporting masking in TensorRT would require.</p>
+<p>Masking in Pytorch will result in <code>NonZero</code> ONNX nodes which cannot be expressed as a TensorRT layer or plugin. TensorRT fails with <code>No importer registered for op: NonZero.</code> or <code>getPluginCreator could not find plugin NonZero</code>. See <a href>masking.py</a> in the repo for an example:</p>
+<div class=book-tabs><input type=radio class=toggle name=tabs-masking id=tabs-masking-0 checked>
+<label for=tabs-masking-0>Code: masking.py</label>
+<div class="book-tabs-content markdown-inner">
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python>    <span class=k>def</span> <span class=nf>forward</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>X</span><span class=p>):</span>
         <span class=n>X</span> <span class=o>=</span> <span class=n>X</span><span class=p>[</span><span class=n>X</span><span class=o>.</span><span class=n>sum</span><span class=p>(</span><span class=n>dim</span><span class=o>=-</span><span class=mi>1</span><span class=p>)</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>]</span>
         <span class=k>return</span> <span class=n>X</span>
-</code></pre></div></div><input type=radio class=toggle name=tabs-masking id=tabs-masking-1>
-<label for=tabs-masking-1>ONNX Graph</label><div class="book-tabs-content markdown-inner"><a href=/posts/tensorrt-object-detection-quantized/images/masking.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/masking_hu463f7206af736e81218c08508fc927eb_219236_896x320_fill_box_center_2.png width=896 height=320><figcaption><small></small></figcaption></figure></a></div><input type=radio class=toggle name=tabs-masking id=tabs-masking-2>
-<label for=tabs-masking-2>Export Output</label><div class="book-tabs-content markdown-inner"><div class=highlight><pre class=chroma><code class=language-markdown data-lang=markdown><span class=hl>import sys, io
-</span>import torch
-import tensorrt as trt
-
-class Masking(torch.nn.Module):
-    def <span class=gs>__init__</span>(self):
-        super().__init__()
-
-    def forward(self, X):
-        X = X[X.sum(dim=-1) &gt; 0]
-        return X
-
-
-if <span class=gs>__name__</span> == &#39;__main__&#39;:
-    m = Masking()
-    onnx_filename = &#39;models/masking.onnx&#39;
-
-    print(&#39;exporting Masking to&#39;, onnx_filename)
-    torch.onnx.export(</code></pre></div></div></div><p>One solution here would be to replace a probability-threshold mask with a top-k approach, which results in an output with fixed dimensions and can therefore be executed in TensorRT. However because we need both top-k and NMS to complete model postprocessing, there is a better alternative.</p><h3 id=13-replacing-masking-and-nms-with-batchednmsplugin>1.3 Replacing Masking and NMS with <code>batchedNMSPlugin</code>
-<a class=anchor href=#13-replacing-masking-and-nms-with-batchednmsplugin>#</a></h3><p>TensorRT ships with a set of open source plugins that extend the functionality of the core layers. One such layer (<a href=https://github.com/NVIDIA/TensorRT/tree/master/plugin/batchedNMSPlugin>batchedNMSPlugin</a>) does almost exactly what we need: NMS on some top-k detections.</p><p>So how do we use it? We will have to go beyond the simple Pytorch -> ONNX -> TensorRT export pipeline and start modifying the ONNX, inserting a node corresponding to the <code>batchedNMSPlugin</code> plugin and cutting out the redundant parts.</p><p>A library called <a href=https://github.com/NVIDIA/TensorRT/tree/master/tools/onnx-graphsurgeon>ONNX GraphSurgeon</a> makes manipulating the ONNX graph easy, all we need to do is figure out where to insert the new node. This is the full postprocessing computational graph (not including all the convolutions):</p><a href=/posts/tensorrt-object-detection-quantized/images/full_postprocessing.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/full_postprocessing_hu463f7206af736e81218c08508fc927eb_562695_896x940_fill_box_bottom_2.png width=896 height=940><figcaption><small></small></figcaption></figure></a><p>There are two ways to figure out where to insert the <code>batchedNMSPlugin</code>:</p><ul><li><p>The hard way is to stare at the ONNX representation above, map it back to Pytorch code and figure out which tensors are the correct inputs to the plugin. Be my guest.</p></li><li><p>The easy way is to tweak the Pytorch model code to produce exactly the outputs the plugin will need. These are then easily accessible in the ONNX graph as outputs, and can be plugged into a new <code>batchedNMSPlugin</code> node as inputs.</p></li></ul><p>See the <code>build_onnx</code> function to review how I did it (the easy way). The resulting modified ONNX looks like this:</p><a href=/posts/tensorrt-object-detection-quantized/images/nms_plugin_postprocessing.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/nms_plugin_postprocessing_hu463f7206af736e81218c08508fc927eb_474181_896x955_fill_box_bottom_2.png width=896 height=955><figcaption><small></small></figcaption></figure></a><p>This looks a lot simpler, but more importantly this ONNX can be compiled and optimized end-to-end with TensorRT. See the <code>build_trt_engine</code> function for details.</p><h3 id=14-results-and-analysis>1.4 Results and Analysis
-<a class=anchor href=#14-results-and-analysis>#</a></h3><p>Compiling the modified ONNX graph and running using 4 CUDA streams gives 275 FPS throughput. With <code>float16</code> optimizations enabled (just like the DeepStream model) we hit 805 FPS.</p><blockquote class="book-hint info">Mean average precision (IoU=0.5:0.95) on COCO2017 has dropped a tiny amount from 25.04 with the <code>float32</code> baseline to 25.02 with <code>float16</code>.</blockquote><div style="width:100%;height:200px;margin:0 auto"><canvas id=155></canvas></div><script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script><script type=text/javascript>var ctx=document.getElementById('155').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'TensorRT DS - 2x2080Ti',\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'TRT DS 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script><p>805 FPS is <strong>less</strong> than the directly comparable model running in DeepStream (at 920 FPS). Let&rsquo;s dig into an Nsight Systems profile (<a href=/posts/tensorrt-object-detection-quantized/files/ssd300.fp16.b16.k256.trt.legacy.qdrep>ssd300.fp16.b16.k256.trt.legacy.qdrep</a>) for the end-to-end model and understand where the time is being spent. The following trace was collected with a single CUDA stream for clarity, and is zoomed in to show a single 16-image batch:</p><a href=/posts/tensorrt-object-detection-quantized/images/fp16.fp32.mixed_precision.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp16.fp32.mixed_precision_hu463f7206af736e81218c08508fc927eb_424952_896x480_fill_box_top_2.png width=896 height=480><figcaption><small></small></figcaption></figure></a><p>I&rsquo;ve marked the beginning of postprocessing (after cross-referencing executed kernels with the DeepStream model), and also marked the execution of the Top-k/NMS plugin.</p><p>Referring back to the DeepStream execution profile, the postprocessing in the end-to-end TensorRT model is immediately suspect. In the DeepStream pipeline, postprocessing was taking 9-10 ms in TorchScript <em>while interleaved with other computation</em>, and here we see around 10 ms of postprocessing but with no concurrent computation.</p><p>Digging into the code of the Top-k/NMS plugin we can see it only supports <code>float32</code> computation, and therefore is not using the tensor cores. :(</p><p>If you&rsquo;ve spent days rewriting model code, performing ONNX surgery, and integrating a TensorRT plugin, and now the model runs slower — you might find yourself thinking &ldquo;Fork TensorRT.&rdquo; So let&rsquo;s do it, let&rsquo;s fork TensorRT. If we extend this plugin to support <code>float16</code> computation we can expect to see some nice gains.</p><h2 id=stage-2-forking-tensorrt>Stage 2: Forking TensorRT
-<a class=anchor href=#stage-2-forking-tensorrt>#</a></h2><p>If you look at <a href=https://github.com/NVIDIA/TensorRT>Nvidia&rsquo;s TensorRT repository</a> you&rsquo;ll see we&rsquo;re not really forking the compiler, just the open-source plugins and tools that come with the framework. We&rsquo;re also not writing any new kernels, just porting the <code>batchedNMSPlugin</code> to work with <code>float16</code> — any <code>float32</code> logic that is implemented in terms of <a href=https://nvlabs.github.io/cub/>CUB</a> or <a href=https://developer.nvidia.com/thrust>Thrust</a> (Nvidia&rsquo;s CUDA algorithm libraries) should be straightforward to port to <code>float16</code>.</p><p>The repository is here: <a href=https://github.com/pbridger/TensorRT>github.com/pbridger/TensorRT</a>.</p><p>If you look at the <a href=https://github.com/NVIDIA/TensorRT/compare/release/7.2...pbridger:release/7.2>diff for adding float16 support to batchedNMSPlugin</a> you&rsquo;ll mostly see updated TensorRT plugin boilerplate, some template specializations and some casts to full-precision <code>float</code>. The casts from <code>__half</code> (<code>float16</code>) to <code>float</code> (<code>float32</code>) mean that some of the plugin computation remains at high precision, notably the bounding-box calculations. This is due to strategic laziness — looking at a profile of the original <code>float32</code> <code>batchedNMSPlugin</code> execution makes the decision clear:</p><a href=/posts/tensorrt-object-detection-quantized/images/fp32.batchedNMSPlugin.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp32.batchedNMSPlugin_hu57e9c9d3310ae7e7a598955edac33634_439396_896x360_fill_box_top_2.png width=896 height=360><figcaption><small></small></figcaption></figure></a><p>The <code>float32</code> <code>batchedNMSPlugin</code> takes 6.2 ms to execute and the largest chunk of that time is sorting. Those <code>DeviceSegmentedRadixSort</code> kernels are calls to CUB and are implemented by Nvidia for <code>float16</code> as well as <code>float32</code>. Now let&rsquo;s compare the profile of the updated <code>float16</code> version of <code>batchedNMSPlugin</code>:</p><a href=/posts/tensorrt-object-detection-quantized/images/fp16.batchedNMSPlugin.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp16.batchedNMSPlugin_hu57e9c9d3310ae7e7a598955edac33634_442713_896x360_fill_box_top_2.png width=896 height=360><figcaption><small></small></figcaption></figure></a><p>We&rsquo;ve saved a whole 2+ ms with the low-effort plugin port, and all it took was a few confident hacks followed by hours and hours of debugging numerical issues in CUDA code. Perfect. Also note the reduced memory-copy time — a sometimes under-appreciated benefit of computation at lower precision is having less data to copy and overall lower memory overheads.</p><p>Let&rsquo;s see what that has done to the throughput:</p><div style="width:100%;height:225px;margin:0 auto"><canvas id=293></canvas></div><script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script><script type=text/javascript>var ctx=document.getElementById('293').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'End-to-End FP16 TensorRT',\n            'TensorRT DS - 2x2080Ti',\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'FP16 TRT',\n            'TRT DS 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                940,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script><p>940 FPS, great, we are finally beating the DeepStream hybrid TensorRT/TorchScript model. We are also getting close to our target single-GPU throughput of 1000 FPS, but we are not there yet.</p><p>I&rsquo;m running this model on 2080Ti GPUs, and the Turing architecture tensor cores should give up to 2X throughput when doing <code>int8</code> computations (compared to <code>float16</code>). Let&rsquo;s try that.</p><h2 id=stage-3-8-bit-quantization->Stage 3: 8-Bit Quantization 👾
-<a class=anchor href=#stage-3-8-bit-quantization->#</a></h2><p>There are a few ways to do 8-bit quantization, and choosing between them is a trade-off between several factors including dev effort and model accuracy. If you are training your own models then Pytorch&rsquo;s <a href=https://pytorch.org/docs/stable/quantization.html>quantization aware training</a> will give you output closest to the full-precision model. However, at the time of writing Pytorch (1.7) only supports <code>int8</code> operators for CPU execution, not for GPUs. Totally boring, and useless for our purposes.</p><p>Luckily TensorRT does post-training <code>int8</code> quantization with just a few lines of code — perfect for working with pretrained models. The only non-trivial part is writing the calibrator interface — this feeds sample network inputs to TensorRT, which it uses to figure out the best scaling factors for converting between floating point and <code>int8</code> values. The code below sends the preprocessed COCO validation set to TensorRT for calibration:</p><details><summary>Int8 Calibrator</summary><div><div class=highlight><pre class=chroma><code class=language-python data-lang=python>
+</code></pre></div>
+</div><input type=radio class=toggle name=tabs-masking id=tabs-masking-1>
+<label for=tabs-masking-1>ONNX Graph</label>
+<div class="book-tabs-content markdown-inner">
+<a href=/posts/tensorrt-object-detection-quantized/images/masking.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/masking_hu463f7206af736e81218c08508fc927eb_219236_896x320_fill_box_center_3.png width=896 height=320>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+</div><input type=radio class=toggle name=tabs-masking id=tabs-masking-2>
+<label for=tabs-masking-2>Export Output</label>
+<div class="book-tabs-content markdown-inner">
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-markdown data-lang=markdown><span class=hl>[TensorRT] ERROR: INVALID_ARGUMENT: getPluginCreator could not find plugin NonZero version 1
+</span>/opt/conda/lib/python3.6/site-packages/torch/onnx/symbolic_opset9.py:2329: UserWarning: Exporting aten::index operator with indices of type Byte. Only 1-D indices are supported. In any other case, this will produce an incorrect ONNX graph.
+  warnings.warn(&#34;Exporting aten::index operator with indices of type Byte. &#34;
+/opt/conda/lib/python3.6/site-packages/torch/onnx/symbolic_opset9.py:591: UserWarning: This model contains a squeeze operation on dimension 1 on an input with unknown shape. Note that if the size of dimension 1 of the input is not 1, the ONNX model will return an error. Opset version 11 supports squeezing on non-singleton dimensions, it is recommended to export this model using opset version 11 or higher.
+  &#34;version 11 or higher.&#34;)
+exporting Masking to models/masking.onnx
+compiling models/masking.onnx with TensorRT
+</code></pre></div>
+</div></div>
+<p>One solution here would be to replace a probability-threshold mask with a top-k approach, which results in an output with fixed dimensions and can therefore be executed in TensorRT. However because we need both top-k and NMS to complete model postprocessing, there is a better alternative.</p>
+<h3 id=13-replacing-masking-and-nms-with-batchednmsplugin>
+1.3 Replacing Masking and NMS with <code>batchedNMSPlugin</code>
+<a class=anchor href=#13-replacing-masking-and-nms-with-batchednmsplugin>#</a>
+</h3>
+<p>TensorRT ships with a set of open source plugins that extend the functionality of the core layers. One such layer (<a href=https://github.com/NVIDIA/TensorRT/tree/master/plugin/batchedNMSPlugin>batchedNMSPlugin</a>) does almost exactly what we need: NMS on some top-k detections.</p>
+<p>So how do we use it? We will have to go beyond the simple Pytorch -> ONNX -> TensorRT export pipeline and start modifying the ONNX, inserting a node corresponding to the <code>batchedNMSPlugin</code> plugin and cutting out the redundant parts.</p>
+<p>A library called <a href=https://github.com/NVIDIA/TensorRT/tree/master/tools/onnx-graphsurgeon>ONNX GraphSurgeon</a> makes manipulating the ONNX graph easy, all we need to do is figure out where to insert the new node. This is the full postprocessing computational graph (not including all the convolutions):</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/full_postprocessing.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/full_postprocessing_hu463f7206af736e81218c08508fc927eb_562695_896x940_fill_box_bottom_3.png width=896 height=940>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>There are two ways to figure out where to insert the <code>batchedNMSPlugin</code>:</p>
+<ul>
+<li>
+<p>The hard way is to stare at the ONNX representation above, map it back to Pytorch code and figure out which tensors are the correct inputs to the plugin. Be my guest.</p>
+</li>
+<li>
+<p>The easy way is to tweak the Pytorch model code to produce exactly the outputs the plugin will need. These are then easily accessible in the ONNX graph as outputs, and can be plugged into a new <code>batchedNMSPlugin</code> node as inputs.</p>
+</li>
+</ul>
+<p>See the <code>build_onnx</code> function to review how I did it (the easy way). The resulting modified ONNX looks like this:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/nms_plugin_postprocessing.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/nms_plugin_postprocessing_hu463f7206af736e81218c08508fc927eb_474181_896x955_fill_box_bottom_3.png width=896 height=955>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>This looks a lot simpler, but more importantly this ONNX can be compiled and optimized end-to-end with TensorRT. See the <code>build_trt_engine</code> function for details.</p>
+<h3 id=14-results-and-analysis>
+1.4 Results and Analysis
+<a class=anchor href=#14-results-and-analysis>#</a>
+</h3>
+<p>Compiling the modified ONNX graph and running using 4 CUDA streams gives 275 FPS throughput. With <code>float16</code> optimizations enabled (just like the DeepStream model) we hit 805 FPS.</p>
+<blockquote class="book-hint info">
+Mean average precision (IoU=0.5:0.95) on COCO2017 has dropped a tiny amount from 25.04 with the <code>float32</code> baseline to 25.02 with <code>float16</code>.
+</blockquote>
+<div style="width:100%;height:200px;margin:0 auto">
+<canvas id=409></canvas>
+</div>
+<script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script>
+<script type=text/javascript>var ctx=document.getElementById('409').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'TensorRT DS - 2x2080Ti',\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'TRT DS 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script>
+<p>805 FPS is <strong>less</strong> than the directly comparable model running in DeepStream (at 920 FPS). Let&rsquo;s dig into an Nsight Systems profile (<a href=/posts/tensorrt-object-detection-quantized/files/ssd300.fp16.b16.k256.trt.legacy.qdrep>ssd300.fp16.b16.k256.trt.legacy.qdrep</a>) for the end-to-end model and understand where the time is being spent. The following trace was collected with a single CUDA stream for clarity, and is zoomed in to show a single 16-image batch:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/fp16.fp32.mixed_precision.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp16.fp32.mixed_precision_hu463f7206af736e81218c08508fc927eb_424952_896x480_fill_box_top_3.png width=896 height=480>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>I&rsquo;ve marked the beginning of postprocessing (after cross-referencing executed kernels with the DeepStream model), and also marked the execution of the Top-k/NMS plugin.</p>
+<p>Referring back to the DeepStream execution profile, the postprocessing in the end-to-end TensorRT model is immediately suspect. In the DeepStream pipeline, postprocessing was taking 9-10 ms in TorchScript <em>while interleaved with other computation</em>, and here we see around 10 ms of postprocessing but with no concurrent computation.</p>
+<p>Digging into the code of the Top-k/NMS plugin we can see it only supports <code>float32</code> computation, and therefore is not using the tensor cores. :(</p>
+<p>If you&rsquo;ve spent days rewriting model code, performing ONNX surgery, and integrating a TensorRT plugin, and now the model runs slower — you might find yourself thinking &ldquo;Fork TensorRT.&rdquo; So let&rsquo;s do it, let&rsquo;s fork TensorRT. If we extend this plugin to support <code>float16</code> computation we can expect to see some nice gains.</p>
+<h2 id=stage-2-forking-tensorrt>
+Stage 2: Forking TensorRT
+<a class=anchor href=#stage-2-forking-tensorrt>#</a>
+</h2>
+<p>If you look at <a href=https://github.com/NVIDIA/TensorRT>Nvidia&rsquo;s TensorRT repository</a> you&rsquo;ll see we&rsquo;re not really forking the compiler, just the open-source plugins and tools that come with the framework. We&rsquo;re also not writing any new kernels, just porting the <code>batchedNMSPlugin</code> to work with <code>float16</code> — any <code>float32</code> logic that is implemented in terms of <a href=https://nvlabs.github.io/cub/>CUB</a> or <a href=https://developer.nvidia.com/thrust>Thrust</a> (Nvidia&rsquo;s CUDA algorithm libraries) should be straightforward to port to <code>float16</code>.</p>
+<p>The repository is here: <a href=https://github.com/pbridger/TensorRT>github.com/pbridger/TensorRT</a>.</p>
+<p>If you look at the <a href=https://github.com/NVIDIA/TensorRT/compare/release/7.2...pbridger:release/7.2>diff for adding float16 support to batchedNMSPlugin</a> you&rsquo;ll mostly see updated TensorRT plugin boilerplate, some template specializations and some casts to full-precision <code>float</code>. The casts from <code>__half</code> (<code>float16</code>) to <code>float</code> (<code>float32</code>) mean that some of the plugin computation remains at high precision, notably the bounding-box calculations. This is due to strategic laziness — looking at a profile of the original <code>float32</code> <code>batchedNMSPlugin</code> execution makes the decision clear:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/fp32.batchedNMSPlugin.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp32.batchedNMSPlugin_hu57e9c9d3310ae7e7a598955edac33634_439396_896x360_fill_box_top_3.png width=896 height=360>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>The <code>float32</code> <code>batchedNMSPlugin</code> takes 6.2 ms to execute and the largest chunk of that time is sorting. Those <code>DeviceSegmentedRadixSort</code> kernels are calls to CUB and are implemented by Nvidia for <code>float16</code> as well as <code>float32</code>. Now let&rsquo;s compare the profile of the updated <code>float16</code> version of <code>batchedNMSPlugin</code>:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/fp16.batchedNMSPlugin.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp16.batchedNMSPlugin_hu57e9c9d3310ae7e7a598955edac33634_442713_896x360_fill_box_top_3.png width=896 height=360>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>We&rsquo;ve saved a whole 2+ ms with the low-effort plugin port, and all it took was a few confident hacks followed by hours and hours of debugging numerical issues in CUDA code. Perfect. Also note the reduced memory-copy time — a sometimes under-appreciated benefit of computation at lower precision is having less data to copy and overall lower memory overheads.</p>
+<p>Let&rsquo;s see what that has done to the throughput:</p>
+<div style="width:100%;height:225px;margin:0 auto">
+<canvas id=322></canvas>
+</div>
+<script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script>
+<script type=text/javascript>var ctx=document.getElementById('322').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'End-to-End FP16 TensorRT',\n            'TensorRT DS - 2x2080Ti',\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'FP16 TRT',\n            'TRT DS 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                940,\n                1840\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script>
+<p>940 FPS, great, we are finally beating the DeepStream hybrid TensorRT/TorchScript model. We are also getting close to our target single-GPU throughput of 1000 FPS, but we are not there yet.</p>
+<p>I&rsquo;m running this model on 2080Ti GPUs, and the Turing architecture tensor cores should give up to 2X throughput when doing <code>int8</code> computations (compared to <code>float16</code>). Let&rsquo;s try that.</p>
+<h2 id=stage-3-8-bit-quantization->
+Stage 3: 8-Bit Quantization 👾
+<a class=anchor href=#stage-3-8-bit-quantization->#</a>
+</h2>
+<p>There are a few ways to do 8-bit quantization, and choosing between them is a trade-off between several factors including dev effort and model accuracy. If you are training your own models then Pytorch&rsquo;s <a href=https://pytorch.org/docs/stable/quantization.html>quantization aware training</a> will give you output closest to the full-precision model. However, at the time of writing Pytorch (1.7) only supports <code>int8</code> operators for CPU execution, not for GPUs. Totally boring, and useless for our purposes.</p>
+<p>Luckily TensorRT does post-training <code>int8</code> quantization with just a few lines of code — perfect for working with pretrained models. The only non-trivial part is writing the calibrator interface — this feeds sample network inputs to TensorRT, which it uses to figure out the best scaling factors for converting between floating point and <code>int8</code> values. The code below sends the preprocessed COCO validation set to TensorRT for calibration:</p>
+<details>
+<summary>Int8 Calibrator</summary>
+<div>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python>
 
 <span class=k>class</span> <span class=nc>Int8Calibrator</span><span class=p>(</span><span class=n>trt</span><span class=o>.</span><span class=n>IInt8EntropyCalibrator2</span><span class=p>):</span>
     <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>args</span><span class=p>):</span>
         <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>()</span>
         <span class=bp>self</span><span class=o>.</span><span class=n>batch_dim</span> <span class=o>=</span> <span class=n>args</span><span class=o>.</span><span class=n>batch_dim</span>
         <span class=bp>self</span><span class=o>.</span><span class=n>dataloader</span> <span class=o>=</span> <span class=nb>iter</span><span class=p>(</span><span class=n>get_val_dataloader</span><span class=p>(</span><span class=n>args</span><span class=p>))</span>
-        <span class=bp>self</span><span class=o>.</span><span class=n>current_batch</span> <span class=o>=</span> <span class=bp>None</span> <span class=c1># for ref-counting</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>current_batch</span> <span class=o>=</span> <span class=kc>None</span> <span class=c1># for ref-counting</span>
         <span class=bp>self</span><span class=o>.</span><span class=n>cache_path</span> <span class=o>=</span> <span class=s1>&#39;calibration.cache&#39;</span>
 
     <span class=k>def</span> <span class=nf>get_batch_size</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
@@ -113,7 +406,7 @@ if <span class=gs>__name__</span> == &#39;__main__&#39;:
             <span class=bp>self</span><span class=o>.</span><span class=n>current_batch</span> <span class=o>=</span> <span class=n>tensor_nchw</span><span class=o>.</span><span class=n>cuda</span><span class=p>(),</span> <span class=n>heights_widths</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=o>.</span><span class=n>cuda</span><span class=p>(),</span> <span class=n>heights_widths</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span><span class=o>.</span><span class=n>cuda</span><span class=p>()</span>
             <span class=k>return</span> <span class=p>[</span><span class=n>t</span><span class=o>.</span><span class=n>data_ptr</span><span class=p>()</span> <span class=k>for</span> <span class=n>t</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>current_batch</span><span class=p>]</span>
         <span class=k>except</span> <span class=ne>StopIteration</span><span class=p>:</span>
-            <span class=k>return</span> <span class=bp>None</span>
+            <span class=k>return</span> <span class=kc>None</span>
 
     <span class=k>def</span> <span class=nf>read_calibration_cache</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
         <span class=k>if</span> <span class=n>os</span><span class=o>.</span><span class=n>path</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>cache_path</span><span class=p>):</span>
@@ -122,5 +415,135 @@ if <span class=gs>__name__</span> == &#39;__main__&#39;:
 
     <span class=k>def</span> <span class=nf>write_calibration_cache</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>cache</span><span class=p>):</span>
         <span class=k>with</span> <span class=nb>open</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>cache_path</span><span class=p>,</span> <span class=s1>&#39;wb&#39;</span><span class=p>)</span> <span class=k>as</span> <span class=n>f</span><span class=p>:</span>
-            <span class=n>f</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>cache</span><span class=p>)</span></code></pre></div></div></details><p>The calibration process takes notably longer than <code>float32</code>/<code>float16</code> compilation, but the results are gratifying:</p><div style="width:100%;height:275px;margin:0 auto"><canvas id=661></canvas></div><script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script><script type=text/javascript>var ctx=document.getElementById('661').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'End-to-End FP16 TensorRT',\n            'End-to-End INT8 TensorRT',\n            'TensorRT DS - 2x2080Ti',\n            'End-to-End INT8 TensorRT - 2x2080Ti'\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'FP16 TRT',\n            'INT8 TRT',\n            'TRT DS 2xGPU',\n            'INT8 TRT 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                940,\n                1240,\n                1840,\n                2530\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script><p>Note the chart scale change from 2000 to 3000 FPS, even this chart cannot keep up with our optimizations.</p><p>We&rsquo;re now hitting 1240 FPS on a single 2080Ti (up from 940 FPS) and 2530 FPS running concurrently on two GPUs. Not only have we crushed our clickbait target (2000 FPS), but you may notice we&rsquo;ve managed to achieve the coveted greater than 100% scalability. 2x1240 = 2480, so we&rsquo;ve magically gained an extra 50 FPS running with two GPUs.</p><p>The truth is less exciting. I consistently get better performance on GPU-1 than GPU-0, but I&rsquo;ve been reporting single-GPU numbers from GPU-0 throughout the article series. Whether this is due to different thermals, different firmware, or even a different hardware revision (I needed to RMA one card) I don&rsquo;t know.</p><blockquote class="book-hint info">Mean average precision (IoU=0.5:0.95) on COCO2017 has dropped from 25.04 with the <code>float32</code> baseline to 24.77 with the <code>int8</code> quantized model. This is beginning to become noticeable, but this kind of change is still dwarfed by differences between model architectures.</blockquote><p>It&rsquo;s worth digging into an Nsight Systems profile to get a sense of the impact of this 8-bit quantization. The first profile is zoomed to a 16-image batch running with the <code>float16</code> model. I&rsquo;ve annotated the core SSD execution time (until the first memory transfer) as 10.5 ms:</p><a href=/posts/tensorrt-object-detection-quantized/images/fp16.profile.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp16.profile_hu57e9c9d3310ae7e7a598955edac33634_403866_896x340_fill_box_top_2.png width=896 height=340><figcaption><small></small></figcaption></figure></a><p>After 8-bit quantization, the corresponding core SSD computation is now 5.5 ms. It&rsquo;s great to see the Turing architecture living up to the expected roughly 2X execution speed, for the basic convolutions at least:</p><a href=/posts/tensorrt-object-detection-quantized/images/int8.profile.png><figure style="margin:2rem 0"><img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/int8.profile_hu57e9c9d3310ae7e7a598955edac33634_416170_896x340_fill_box_top_2.png width=896 height=340><figcaption><small></small></figcaption></figure></a><p>The postprocessing is running no faster than before, and is now dominating the computation. I&rsquo;ll leave further quantization work as an exercise for the reader. Ping me at <a href="mailto:paul@paulbridger.com?subject=homework%20is%20done">paul@paulbridger.com</a> when it&rsquo;s done.</p><h2 id=conclusion>Conclusion
-<a class=anchor href=#conclusion>#</a></h2><p>2530 FPS is an awesome result, but it took a substantial effort. It&rsquo;s useful to know what is possible with modern GPU architectures, and it&rsquo;s useful to see the discrete impact on throughput and model accuracy of various optimizations. However, most smaller development shops don&rsquo;t have the resources or patience to be this obsessive.</p><p>To get these results you have to leave the simple, well-supported productionization workflows behind and solve a lot of gnarly issues (many not mentioned above). This post is as much evidence that truly high-performance productionization workflows aren&rsquo;t &ldquo;there yet&rdquo; as it is of the capabilities of cutting-edge tools.</p><p>This is the last article in my SSD300 object-detection optimization series. In future articles I&rsquo;ll get deep into the details of productionization on different hardware architectures (Nvidia Jetson and Apple Neural Engine) as well as look at more state-of-the-art models (EfficientDet, Yolo, and transformers)<a href=/posts/tensorrt-object-detection-quantized/images/gpumon.png>.</a></p></article><article class="markdown social"><hr><section class=social-share><ul class=share-icons><li><a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter" class="share-btn twitter"><svg class="widget-social__link-icon icon icon-twitter" width="24" height="24" viewBox="0 0 384 312"><path fill="#fff" d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5.0-78.8 35.3-78.8 78.8.0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3C20 26 16.1 39.6 16.1 54c0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1.0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4.0-12.6-.4-18.8-1.1C34.9 299 76.3 312 120.8 312c144.9.0 224.1-120 224.1-224.1.0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg><p>Twitter</p></a></li><li class=share-label><a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter">Follow on Twitter</a></li></ul><ul class=share-icons><li><a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn" class="share-btn linkedin"><svg class="widget-social__link-icon icon icon-linkedin" width="24" height="24" viewBox="0 0 352 352"><path fill="#fff" d="M0 40v272c0 21.9 18.1 40 40 40h272c21.9.0 40-18.1 40-40V40c0-21.9-18.1-40-40-40H40C18.1.0.0 18.1.0 40zm312-8c4.6.0 8 3.4 8 8v272c0 4.6-3.4 8-8 8H40c-4.6.0-8-3.4-8-8V40c0-4.6 3.4-8 8-8H312zM59.5 87c0 15.2 12.3 27.5 27.5 27.5s27.5-12.3 27.5-27.5S102.2 59.5 87 59.5 59.5 71.8 59.5 87zM187 157h-1v-21h-45v152h47v-75c0-19.8 3.9-39 28.5-39 24.2.0 24.5 22.4 24.5 40v74h47v-83.5c0-40.9-8.7-72-56.5-72-23 0-38.2 12.6-44.5 24.5zM64 288h47.5V136H64V288z"/></svg><p>LinkedIn</p></a></li><li class=share-label><a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn">Connect on LinkedIn</a></li></ul><ul class=share-icons><li><a href=mailto:paul@paulbridger.com target=_blank class="share-btn email"><svg class="widget-social__link-icon icon icon-mail" width="24" height="24" viewBox="0 0 416 288"><path fill="#fff" d="m0 16v256 16h16 384 16v-16V16 0h-16H16 0zm347 16-139 92.5L69 32zM199 157.5l9 5.5 9-5.5L384 46v210H32V46z"/></svg><p>Email</p></a></li><li class=share-label><a href=mailto:paul@paulbridger.com target=_blank>Contact by Email</a></li></ul></section></article><footer class=book-footer><div class="flex flex-wrap justify-between"></div><script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script><hr><b>&copy; Paul Bridger 2020</b></footer><div class=book-comments></div><label for=menu-control class="hidden book-menu-overlay"></label></div><aside class=book-toc><div class=book-toc-content><div class=book-toc-div><nav id=TableOfContents><ul><li><a href=#intro>Intro</a><ul><li><a href=#on-optimizing-arbitrary-numbers>On Optimizing Arbitrary Numbers</a></li></ul></li><li><a href=#stage-0-deepstream-baseline>Stage 0: DeepStream Baseline</a></li><li><a href=#stage-1-end-to-end-tensorrt>Stage 1: End-to-End TensorRT</a><ul><li><a href=#11-rewriting-subscripted-tensor-assignment>1.1 Rewriting Subscripted Tensor Assignment</a></li><li><a href=#12-tensorrt-and-masking>1.2 TensorRT and Masking</a></li><li><a href=#13-replacing-masking-and-nms-with-batchednmsplugin>1.3 Replacing Masking and NMS with <code>batchedNMSPlugin</code></a></li><li><a href=#14-results-and-analysis>1.4 Results and Analysis</a></li></ul></li><li><a href=#stage-2-forking-tensorrt>Stage 2: Forking TensorRT</a></li><li><a href=#stage-3-8-bit-quantization->Stage 3: 8-Bit Quantization 👾</a></li><li><a href=#conclusion>Conclusion</a></li></ul></nav><nav></nav></div></div></aside></main></body></html>
+            <span class=n>f</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>cache</span><span class=p>)</span></code></pre></div>
+</div>
+</details>
+<p>The calibration process takes notably longer than <code>float32</code>/<code>float16</code> compilation, but the results are gratifying:</p>
+<div style="width:100%;height:275px;margin:0 auto">
+<canvas id=363></canvas>
+</div>
+<script src=https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js></script>
+<script type=text/javascript>var ctx=document.getElementById('363').getContext('2d'),options=eval("(\n{\n    type: 'horizontalBar',\n    data: {\n        labels: ((window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) \u003e 600 ? [\n            'Normal DeepStream',\n            'End-to-End FP32 TensorRT',\n            'Hacked DeepStream',\n            'End-to-End MP TensorRT',\n            'TensorRT DS - 1x2080Ti',\n            'End-to-End FP16 TensorRT',\n            'End-to-End INT8 TensorRT',\n            'TensorRT DS - 2x2080Ti',\n            'End-to-End INT8 TensorRT - 2x2080Ti'\n        ] : [\n            'Normal DS',\n            'FP32 TRT',\n            'Hacked DS',\n            'MP TRT',\n            'TRT DS 1xGPU',\n            'FP16 TRT',\n            'INT8 TRT',\n            'TRT DS 2xGPU',\n            'INT8 TRT 2xGPU',\n        ]),\n        datasets: [{\n            label: 'Throughput (FPS)',\n            data: [\n                110,\n                275,\n                350,\n                805,\n                920,\n                940,\n                1240,\n                1840,\n                2530\n            ],\n            borderColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            backgroundColor: [\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.25)',\n                'rgba(118, 185, 0, 0.5)',\n                'rgba(0, 0, 0, 0.1)',\n                'rgba(118, 185, 0, 0.5)',\n            ],\n            borderWidth: 1\n        }]\n    },\n    options: {\n        maintainAspectRatio: false,\n        title: {\n            display: true,\n            text: 'Throughput (FPS)',\n            position: 'top'\n        },\n        scales: {\n            yAxes: [{\n                position: 'right'\n            }],\n            xAxes: [{\n                ticks: {\n                    beginAtZero: true\n                }\n            }]\n        },\n        legend: {\n            display: false\n        }\n    }\n})");new Chart(ctx,options)</script>
+<p>Note the chart scale change from 2000 to 3000 FPS, even this chart cannot keep up with our optimizations.</p>
+<p>We&rsquo;re now hitting 1240 FPS on a single 2080Ti (up from 940 FPS) and 2530 FPS running concurrently on two GPUs. Not only have we crushed our clickbait target (2000 FPS), but you may notice we&rsquo;ve managed to achieve the coveted greater than 100% scalability. 2x1240 = 2480, so we&rsquo;ve magically gained an extra 50 FPS running with two GPUs.</p>
+<p>The truth is less exciting. I consistently get better performance on GPU-1 than GPU-0, but I&rsquo;ve been reporting single-GPU numbers from GPU-0 throughout the article series. Whether this is due to different thermals, different firmware, or even a different hardware revision (I needed to RMA one card) I don&rsquo;t know.</p>
+<blockquote class="book-hint info">
+Mean average precision (IoU=0.5:0.95) on COCO2017 has dropped from 25.04 with the <code>float32</code> baseline to 24.77 with the <code>int8</code> quantized model. This is beginning to become noticeable, but this kind of change is still dwarfed by differences between model architectures.
+</blockquote>
+<p>It&rsquo;s worth digging into an Nsight Systems profile to get a sense of the impact of this 8-bit quantization. The first profile is zoomed to a 16-image batch running with the <code>float16</code> model. I&rsquo;ve annotated the core SSD execution time (until the first memory transfer) as 10.5 ms:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/fp16.profile.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/fp16.profile_hu57e9c9d3310ae7e7a598955edac33634_403866_896x340_fill_box_top_3.png width=896 height=340>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>After 8-bit quantization, the corresponding core SSD computation is now 5.5 ms. It&rsquo;s great to see the Turing architecture living up to the expected roughly 2X execution speed, for the basic convolutions at least:</p>
+<a href=/posts/tensorrt-object-detection-quantized/images/int8.profile.png>
+<figure style="margin:2rem 0">
+<img style=max-width:100%;width:auto;height:auto src=/posts/tensorrt-object-detection-quantized/images/int8.profile_hu57e9c9d3310ae7e7a598955edac33634_416170_896x340_fill_box_top_3.png width=896 height=340>
+<figcaption><small></small></figcaption>
+</figure>
+</a>
+<p>The postprocessing is running no faster than before, and is now dominating the computation. I&rsquo;ll leave further quantization work as an exercise for the reader. Ping me at <a href="mailto:paul@paulbridger.com?subject=homework%20is%20done">paul@paulbridger.com</a> when it&rsquo;s done.</p>
+<h2 id=conclusion>
+Conclusion
+<a class=anchor href=#conclusion>#</a>
+</h2>
+<p>2530 FPS is an awesome result, but it took a substantial effort. It&rsquo;s useful to know what is possible with modern GPU architectures, and it&rsquo;s useful to see the discrete impact on throughput and model accuracy of various optimizations. However, most smaller development shops don&rsquo;t have the resources or patience to be this obsessive.</p>
+<p>To get these results you have to leave the simple, well-supported productionization workflows behind and solve a lot of gnarly issues (many not mentioned above). This post is as much evidence that truly high-performance productionization workflows aren&rsquo;t &ldquo;there yet&rdquo; as it is of the capabilities of cutting-edge tools.</p>
+<p>This is the last article in my SSD300 object-detection optimization series. In future articles I&rsquo;ll get deep into the details of productionization on different hardware architectures (Nvidia Jetson and Apple Neural Engine) as well as look at more state-of-the-art models (EfficientDet, Yolo, and transformers)<a href=/posts/tensorrt-object-detection-quantized/images/gpumon.png>.</a></p>
+</article>
+<article class="markdown social">
+<hr>
+<section class=social-share>
+<ul class=share-icons>
+<li>
+<a href target=_blank class="share-btn newsletter"><svg class="widget-social__link-icon icon icon-mail" fill="#fff" width="24" height="24" viewBox="0 0 166.781 166.781"><g><g><g><path d="M163.451 70.046l-32.35-20.847c-.253-.161-.532-.222-.804-.312v-7.19c0-1.92-1.554-3.475-3.475-3.475H113.92L86.97 21.378c-1.126-.706-2.558-.706-3.685.0l-26.95 16.844H39.958c-1.92.0-3.475 1.554-3.475 3.475v7.188c-.272.09-.552.152-.804.314L3.329 70.046c-.991.641-1.592 1.741-1.592 2.921v90.339c0 1.92 1.554 3.475 3.475 3.475h156.356c1.92.0 3.475-1.554 3.475-3.475V72.968C165.043 71.787 164.442 70.688 163.451 70.046zM85.128 28.423l15.681 9.799H69.447l15.681-9.799zM43.433 45.171h79.915v78.178c0 .01.006.018.006.029l-11.754 7.137-28.284-15.427c-1.055-.57-2.338-.567-3.386.034l-25.81 14.749-10.692-6.492c0-.01.006-.018.006-.028L43.433 45.171zM8.687 74.861l27.796-17.91v62.212L8.687 102.285V74.861zm0 35.551 38.537 23.397L8.687 155.831V110.412zm7.002 49.421 66.005-37.715 69.145 37.715H15.689zm142.405-3.959L118.65 134.36l39.444-23.949v45.463zm0-53.589-27.797 16.877V56.951l27.797 17.911v27.423z"/><path d="M57.331 79.917h41.695c1.92.0 3.475-1.554 3.475-3.475V55.595c0-1.92-1.554-3.475-3.475-3.475H57.331c-1.92.0-3.475 1.554-3.475 3.475v20.847C53.856 78.363 55.411 79.917 57.331 79.917zm3.474-20.848h34.746v13.898H60.805V59.069z"/><rect x="53.856" y="86.866" width="55.593" height="6.949"/><rect x="53.856" y="100.765" width="55.593" height="6.949"/><path d="M147.67 41.697c.889.0 1.778-.339 2.457-1.018l12.283-12.283c1.357-1.357 1.357-3.556.0-4.913-1.357-1.358-3.556-1.357-4.913.0l-12.283 12.283c-1.357 1.357-1.357 3.556.0 4.913C145.892 41.358 146.781 41.697 147.67 41.697z"/><path d="M16.654 40.679c.679.679 1.568 1.018 2.457 1.018s1.778-.339 2.457-1.018c1.357-1.357 1.357-3.556.0-4.913L9.284 23.483c-1.357-1.357-3.556-1.357-4.913.0s-1.357 3.556.0 4.913L16.654 40.679z"/><path d="M118.584 24.076c.421.17.859.247 1.289.247 1.378.0 2.684-.825 3.227-2.185l6.949-17.373c.713-1.781-.156-3.804-1.937-4.516-1.764-.709-3.804.149-4.516 1.937l-6.949 17.373C115.934 21.341 116.802 23.364 118.584 24.076z"/><path d="M47.155 22.139c.543 1.361 1.849 2.185 3.227 2.185.431.0.869-.078 1.289-.248 1.781-.713 2.65-2.735 1.937-4.516L46.659 2.187C45.946.399 43.911-.46 42.143.25c-1.781.713-2.65 2.735-1.937 4.516l6.949 17.373z"/></g></g></g></svg>
+<p>Newsletter</p>
+</a>
+</li>
+<li class=share-label>
+<script async data-uid=d104ecfe6c src=https://paulbridger.ck.page/d104ecfe6c/index.js></script>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter" class="share-btn twitter"><svg class="widget-social__link-icon icon icon-twitter" width="24" height="24" viewBox="0 0 384 312"><path fill="#fff" d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5.0-78.8 35.3-78.8 78.8.0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3C20 26 16.1 39.6 16.1 54c0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1.0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4.0-12.6-.4-18.8-1.1C34.9 299 76.3 312 120.8 312c144.9.0 224.1-120 224.1-224.1.0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+<p>Twitter</p>
+</a>
+</li>
+<li class=share-label>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter">
+Follow on Twitter
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn" class="share-btn linkedin"><svg class="widget-social__link-icon icon icon-linkedin" width="24" height="24" viewBox="0 0 352 352"><path fill="#fff" d="M0 40v272c0 21.9 18.1 40 40 40h272c21.9.0 40-18.1 40-40V40c0-21.9-18.1-40-40-40H40C18.1.0.0 18.1.0 40zm312-8c4.6.0 8 3.4 8 8v272c0 4.6-3.4 8-8 8H40c-4.6.0-8-3.4-8-8V40c0-4.6 3.4-8 8-8H312zM59.5 87c0 15.2 12.3 27.5 27.5 27.5s27.5-12.3 27.5-27.5S102.2 59.5 87 59.5 59.5 71.8 59.5 87zM187 157h-1v-21h-45v152h47v-75c0-19.8 3.9-39 28.5-39 24.2.0 24.5 22.4 24.5 40v74h47v-83.5c0-40.9-8.7-72-56.5-72-23 0-38.2 12.6-44.5 24.5zM64 288h47.5V136H64V288z"/></svg>
+<p>LinkedIn</p>
+</a>
+</li>
+<li class=share-label>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn">
+Connect on LinkedIn
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=mailto:paul@paulbridger.com target=_blank class="share-btn email"><svg class="widget-social__link-icon icon icon-mail" width="24" height="24" viewBox="0 0 416 288"><path fill="#fff" d="m0 16v256 16h16 384 16v-16V16 0h-16H16 0zm347 16-139 92.5L69 32zM199 157.5l9 5.5 9-5.5L384 46v210H32V46z"/></svg>
+<p>Email</p>
+</a>
+</li>
+<li class=share-label>
+<a href=mailto:paul@paulbridger.com target=_blank>
+Contact by Email
+</a>
+</li>
+</ul>
+</section>
+</article>
+<footer class=book-footer>
+<div class="flex flex-wrap justify-between">
+</div>
+<script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script>
+<hr>
+<b>&copy; Paul Bridger 2020</b>
+</footer>
+<div class=book-comments>
+</div>
+<label for=menu-control class="hidden book-menu-overlay"></label>
+</div>
+<aside class=book-toc>
+<div class=book-toc-content>
+<div class=book-toc-div>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#intro>Intro</a>
+<ul>
+<li><a href=#on-optimizing-arbitrary-numbers>On Optimizing Arbitrary Numbers</a></li>
+</ul>
+</li>
+<li><a href=#stage-0-deepstream-baseline>Stage 0: DeepStream Baseline</a></li>
+<li><a href=#stage-1-end-to-end-tensorrt>Stage 1: End-to-End TensorRT</a>
+<ul>
+<li><a href=#11-rewriting-subscripted-tensor-assignment>1.1 Rewriting Subscripted Tensor Assignment</a></li>
+<li><a href=#12-tensorrt-and-masking>1.2 TensorRT and Masking</a></li>
+<li><a href=#13-replacing-masking-and-nms-with-batchednmsplugin>1.3 Replacing Masking and NMS with <code>batchedNMSPlugin</code></a></li>
+<li><a href=#14-results-and-analysis>1.4 Results and Analysis</a></li>
+</ul>
+</li>
+<li><a href=#stage-2-forking-tensorrt>Stage 2: Forking TensorRT</a></li>
+<li><a href=#stage-3-8-bit-quantization->Stage 3: 8-Bit Quantization 👾</a></li>
+<li><a href=#conclusion>Conclusion</a></li>
+</ul>
+</nav>
+<nav>
+</nav>
+</div>
+</div>
+</aside>
+</main>
+</body>
+</html>

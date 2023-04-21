@@ -1,32 +1,382 @@
-<!doctype html><html lang=en dir=ltr><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content><meta name=theme-color content="#FFFFFF"><meta property="og:title" content="Tags"><meta property="og:description" content><meta property="og:type" content="website"><meta property="og:url" content="https://paulbridger.com/tags/"><title>Tags | paulbridger.com</title><link rel=manifest href=/manifest.json><link rel=icon href=/favicon.png type=image/x-icon><link rel=stylesheet href=/book.min.23da3cf037fbe70fe3726e8cd507f54b2e18ea698dec0552430692be6eb655d8.css integrity="sha256-I9o88Df75w/jcm6M1Qf1Sy4Y6mmN7AVSQwaSvm62Vdg=" crossorigin=anonymous><script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script><script async src=https://www.google-analytics.com/analytics.js></script><link rel=alternate type=application/rss+xml href=https://paulbridger.com/tags/index.xml title=paulbridger.com></head><body dir=ltr><input type=checkbox class="hidden toggle" id=menu-control>
-<input type=checkbox class="hidden toggle" id=toc-control><main class="container flex"><aside class=book-menu><div class=book-menu-content><nav><h2 class=book-brand><a href=/><span>paulbridger.com</span></a></h2><ul><li><a href=https://paulbridger.com/posts/nsight-systems-systematic-optimization/>Solving Machine Learning Performance Anti-Patterns: a Systematic Approach</a></li><li><a href=https://paulbridger.com/posts/video-analytics-pytorch-pipeline/>A Simple and Flexible Pytorch Video Pipeline</a></li><li><a href=https://paulbridger.com/posts/video-analytics-pipeline-tuning/>Object Detection from 9 FPS to 650 FPS in 6 Steps</a></li><li><a href=https://paulbridger.com/posts/video-analytics-deepstream-pipeline/>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a></li><li><a href=https://paulbridger.com/posts/tensorrt-object-detection-quantized/>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a></li><li><a href=https://paulbridger.com/posts/mastering-torchscript/>Mastering TorchScript: Tracing vs Scripting, Device Pinning, Direct Graph Modification</a></li><li><a href=https://paulbridger.com/posts/consulting/>Consulting / Hire Me</a></li><li><a href=https://paulbridger.com/posts/about/>About Paul Bridger</a></li></ul></nav><script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script></div></aside><div class=book-page><header class=book-header><div class="flex align-center justify-between"><label for=menu-control><img src=/svg/menu.svg class=book-icon alt=Menu></label>
+<!doctype html><html lang=en dir=ltr>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content>
+<meta name=theme-color content="#FFFFFF"><meta property="og:title" content="Tags">
+<meta property="og:description" content>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://paulbridger.com/tags/">
+<title>Tags | paulbridger.com</title>
+<link rel=manifest href=/manifest.json>
+<link rel=icon href=/favicon.png type=image/x-icon>
+<link rel=stylesheet href=/book.min.b5056d4fbae4a365a3e7a6f0af8a29daf564e71fa285cacf5f41e0c78741630d.css integrity="sha256-tQVtT7rko2Wj56bwr4op2vVk5x+ihcrPX0Hgx4dBYw0=" crossorigin=anonymous>
+<script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script>
+<script async src=https://www.google-analytics.com/analytics.js></script>
+<link rel=alternate type=application/rss+xml href=https://paulbridger.com/tags/index.xml title=paulbridger.com>
+</head>
+<body dir=ltr>
+<input type=checkbox class="hidden toggle" id=menu-control>
+<input type=checkbox class="hidden toggle" id=toc-control>
+<main class="container flex">
+<aside class=book-menu>
+<div class=book-menu-content>
+<nav>
+<h2 class=book-brand>
+<a href=/><span>paulbridger.com</span>
+</a>
+</h2>
+<ul>
+<li>
+<a href=https://paulbridger.com/posts/pytorch-tuning-tips/>PyTorch Performance Features and How They Interact</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/nsight-systems-systematic-optimization/>Solving Machine Learning Performance Anti-Patterns: a Systematic Approach</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pytorch-pipeline/>A Simple and Flexible Pytorch Video Pipeline</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pipeline-tuning/>Object Detection from 9 FPS to 650 FPS in 6 Steps</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-deepstream-pipeline/>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/tensorrt-object-detection-quantized/>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/mastering-torchscript/>Mastering TorchScript: Tracing vs Scripting, Device Pinning, Direct Graph Modification</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/consulting/>Consulting / Hire Me</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/about/>About Paul Bridger</a>
+</li>
+</ul>
+</nav>
+<script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+</div>
+</aside>
+<div class=book-page>
+<header class=book-header>
+<div class="flex align-center justify-between">
+<label for=menu-control>
+<img src=/svg/menu.svg class=book-icon alt=Menu>
+</label>
 <strong>Tags</strong>
-<label for=toc-control><img src=/svg/toc.svg class=book-icon alt="Table of Contents"></label></div><aside class="hidden clearfix"><nav><ul><li class=book-section-flat><strong>Categories</strong><ul><li class="flex justify-between"><a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a>
-<span>5</span></li><li class="flex justify-between"><a href=/categories/visual-analytics/>Visual Analytics</a>
-<span>4</span></li></ul></li><li class=book-section-flat><strong>Tags</strong><ul><li class="flex justify-between"><a href=/tags/nsight-systems/>Nsight Systems</a>
-<span>5</span></li><li class="flex justify-between"><a href=/tags/nvtx/>NVTX</a>
-<span>3</span></li><li class="flex justify-between"><a href=/tags/optimization/>Optimization</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/quantization/>Quantization</a>
-<span>2</span></li><li class="flex justify-between"><a href=/tags/tensorrt/>TensorRT</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/torchscript/>TorchScript</a>
-<span>3</span></li><li class="flex justify-between"><a href=/tags/object-detection/>Object Detection</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/onnx/>ONNX</a>
-<span>3</span></li><li class="flex justify-between"><a href=/tags/pytorch/>Pytorch</a>
-<span>5</span></li><li class="flex justify-between"><a href=/tags/ssd300/>SSD300</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/deepstream/>DeepStream</a>
-<span>1</span></li><li class="flex justify-between"><a href=/tags/gstreamer/>Gstreamer</a>
-<span>2</span></li></ul></li></ul></nav></aside></header><article class="markdown book-post"><h2><a href=/tags/nsight-systems/>Nsight Systems</a></h2><h5>June 24, 2021</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/nvtx/>NVTX</a></h2><h5>June 24, 2021</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/optimization/>Optimization</a></h2><h5>June 24, 2021</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/quantization/>Quantization</a></h2><h5>June 24, 2021</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/tensorrt/>TensorRT</a></h2><h5>June 24, 2021</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/torchscript/>TorchScript</a></h2><h5>June 24, 2021</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/object-detection/>Object Detection</a></h2><h5>December 31, 2020</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/onnx/>ONNX</a></h2><h5>December 31, 2020</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/pytorch/>Pytorch</a></h2><h5>December 31, 2020</h5><p></p></article><article class="markdown book-post"><h2><a href=/tags/ssd300/>SSD300</a></h2><h5>December 31, 2020</h5><p></p></article><ul class=pagination><li class=page-item><a href=/tags/ class=page-link aria-label=First><span aria-hidden=true>&#171;&#171;</span></a></li><li class="page-item disabled"><a class=page-link aria-label=Previous><span aria-hidden=true>&#171;</span></a></li><li class="page-item active"><a class=page-link href=/tags/>1</a></li><li class=page-item><a class=page-link href=/tags/page/2/>2</a></li><li class=page-item><a href=/tags/page/2/ class=page-link aria-label=Next><span aria-hidden=true>&#187;</span></a></li><li class=page-item><a href=/tags/page/2/ class=page-link aria-label=Last><span aria-hidden=true>&#187;&#187;</span></a></li></ul><article class="markdown social"><hr><section class=social-share><ul class=share-icons><li><a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter" class="share-btn twitter"><svg class="widget-social__link-icon icon icon-twitter" width="24" height="24" viewBox="0 0 384 312"><path fill="#fff" d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5.0-78.8 35.3-78.8 78.8.0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3C20 26 16.1 39.6 16.1 54c0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1.0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4.0-12.6-.4-18.8-1.1C34.9 299 76.3 312 120.8 312c144.9.0 224.1-120 224.1-224.1.0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg><p>Twitter</p></a></li><li class=share-label><a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter">Follow on Twitter</a></li></ul><ul class=share-icons><li><a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn" class="share-btn linkedin"><svg class="widget-social__link-icon icon icon-linkedin" width="24" height="24" viewBox="0 0 352 352"><path fill="#fff" d="M0 40v272c0 21.9 18.1 40 40 40h272c21.9.0 40-18.1 40-40V40c0-21.9-18.1-40-40-40H40C18.1.0.0 18.1.0 40zm312-8c4.6.0 8 3.4 8 8v272c0 4.6-3.4 8-8 8H40c-4.6.0-8-3.4-8-8V40c0-4.6 3.4-8 8-8H312zM59.5 87c0 15.2 12.3 27.5 27.5 27.5s27.5-12.3 27.5-27.5S102.2 59.5 87 59.5 59.5 71.8 59.5 87zM187 157h-1v-21h-45v152h47v-75c0-19.8 3.9-39 28.5-39 24.2.0 24.5 22.4 24.5 40v74h47v-83.5c0-40.9-8.7-72-56.5-72-23 0-38.2 12.6-44.5 24.5zM64 288h47.5V136H64V288z"/></svg><p>LinkedIn</p></a></li><li class=share-label><a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn">Connect on LinkedIn</a></li></ul><ul class=share-icons><li><a href=mailto:paul@paulbridger.com target=_blank class="share-btn email"><svg class="widget-social__link-icon icon icon-mail" width="24" height="24" viewBox="0 0 416 288"><path fill="#fff" d="m0 16v256 16h16 384 16v-16V16 0h-16H16 0zm347 16-139 92.5L69 32zM199 157.5l9 5.5 9-5.5L384 46v210H32V46z"/></svg><p>Email</p></a></li><li class=share-label><a href=mailto:paul@paulbridger.com target=_blank>Contact by Email</a></li></ul></section></article><footer class=book-footer><div class="flex flex-wrap justify-between"></div><script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script><hr><b>&copy; Paul Bridger 2020</b></footer><label for=menu-control class="hidden book-menu-overlay"></label></div><aside class=book-toc><div class=book-toc-content><nav><ul><li class=book-section-flat><strong>Categories</strong><ul><li class="flex justify-between"><a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a>
-<span>5</span></li><li class="flex justify-between"><a href=/categories/visual-analytics/>Visual Analytics</a>
-<span>4</span></li></ul></li><li class=book-section-flat><strong>Tags</strong><ul><li class="flex justify-between"><a href=/tags/nsight-systems/>Nsight Systems</a>
-<span>5</span></li><li class="flex justify-between"><a href=/tags/nvtx/>NVTX</a>
-<span>3</span></li><li class="flex justify-between"><a href=/tags/optimization/>Optimization</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/quantization/>Quantization</a>
-<span>2</span></li><li class="flex justify-between"><a href=/tags/tensorrt/>TensorRT</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/torchscript/>TorchScript</a>
-<span>3</span></li><li class="flex justify-between"><a href=/tags/object-detection/>Object Detection</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/onnx/>ONNX</a>
-<span>3</span></li><li class="flex justify-between"><a href=/tags/pytorch/>Pytorch</a>
-<span>5</span></li><li class="flex justify-between"><a href=/tags/ssd300/>SSD300</a>
-<span>4</span></li><li class="flex justify-between"><a href=/tags/deepstream/>DeepStream</a>
-<span>1</span></li><li class="flex justify-between"><a href=/tags/gstreamer/>Gstreamer</a>
-<span>2</span></li></ul></li></ul></nav></div></aside></main></body></html>
+<label for=toc-control>
+<img src=/svg/toc.svg class=book-icon alt="Table of Contents">
+</label>
+</div>
+<aside class="hidden clearfix">
+<nav>
+<ul>
+<li class=book-section-flat>
+<strong>Categories</strong>
+<ul>
+<li class="flex justify-between">
+<a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a>
+<span>6</span>
+</li>
+<li class="flex justify-between">
+<a href=/categories/visual-analytics/>Visual Analytics</a>
+<span>4</span>
+</li>
+</ul>
+</li>
+<li class=book-section-flat>
+<strong>Tags</strong>
+<ul>
+<li class="flex justify-between">
+<a href=/tags/optimization/>Optimization</a>
+<span>5</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/pytorch/>Pytorch</a>
+<span>6</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/nsight-systems/>Nsight Systems</a>
+<span>5</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/nvtx/>NVTX</a>
+<span>3</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/quantization/>Quantization</a>
+<span>2</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/tensorrt/>TensorRT</a>
+<span>4</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/torchscript/>TorchScript</a>
+<span>3</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/object-detection/>Object Detection</a>
+<span>4</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/onnx/>ONNX</a>
+<span>3</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/ssd300/>SSD300</a>
+<span>4</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/deepstream/>DeepStream</a>
+<span>1</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/gstreamer/>Gstreamer</a>
+<span>2</span>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</aside>
+</header>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/optimization/>Optimization</a>
+</h2>
+<h5>April 14, 2023</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/pytorch/>Pytorch</a>
+</h2>
+<h5>April 14, 2023</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/nsight-systems/>Nsight Systems</a>
+</h2>
+<h5>June 24, 2021</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/nvtx/>NVTX</a>
+</h2>
+<h5>June 24, 2021</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/quantization/>Quantization</a>
+</h2>
+<h5>June 24, 2021</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/tensorrt/>TensorRT</a>
+</h2>
+<h5>June 24, 2021</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/torchscript/>TorchScript</a>
+</h2>
+<h5>June 24, 2021</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/object-detection/>Object Detection</a>
+</h2>
+<h5>December 31, 2020</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/onnx/>ONNX</a>
+</h2>
+<h5>December 31, 2020</h5>
+<p>
+</p>
+</article>
+<article class="markdown book-post">
+<h2>
+<a href=/tags/ssd300/>SSD300</a>
+</h2>
+<h5>December 31, 2020</h5>
+<p>
+</p>
+</article>
+<ul class="pagination pagination-default">
+<li class="page-item disabled">
+<a aria-disabled=true aria-label=First class=page-link role=button tabindex=-1><span aria-hidden=true>&#171;&#171;</span></a>
+</li>
+<li class="page-item disabled">
+<a aria-disabled=true aria-label=Previous class=page-link role=button tabindex=-1><span aria-hidden=true>&#171;</span></a>
+</li>
+<li class="page-item active">
+<a aria-current=page aria-label="Page 1" class=page-link role=button>1</a>
+</li>
+<li class=page-item>
+<a href=/tags/page/2/ aria-label="Page 2" class=page-link role=button>2</a>
+</li>
+<li class=page-item>
+<a href=/tags/page/2/ aria-label=Next class=page-link role=button><span aria-hidden=true>&#187;</span></a>
+</li>
+<li class=page-item>
+<a href=/tags/page/2/ aria-label=Last class=page-link role=button><span aria-hidden=true>&#187;&#187;</span></a>
+</li>
+</ul>
+<article class="markdown social">
+<hr>
+<section class=social-share>
+<ul class=share-icons>
+<li>
+<a href target=_blank class="share-btn newsletter"><svg class="widget-social__link-icon icon icon-mail" fill="#fff" width="24" height="24" viewBox="0 0 166.781 166.781"><g><g><g><path d="M163.451 70.046l-32.35-20.847c-.253-.161-.532-.222-.804-.312v-7.19c0-1.92-1.554-3.475-3.475-3.475H113.92L86.97 21.378c-1.126-.706-2.558-.706-3.685.0l-26.95 16.844H39.958c-1.92.0-3.475 1.554-3.475 3.475v7.188c-.272.09-.552.152-.804.314L3.329 70.046c-.991.641-1.592 1.741-1.592 2.921v90.339c0 1.92 1.554 3.475 3.475 3.475h156.356c1.92.0 3.475-1.554 3.475-3.475V72.968C165.043 71.787 164.442 70.688 163.451 70.046zM85.128 28.423l15.681 9.799H69.447l15.681-9.799zM43.433 45.171h79.915v78.178c0 .01.006.018.006.029l-11.754 7.137-28.284-15.427c-1.055-.57-2.338-.567-3.386.034l-25.81 14.749-10.692-6.492c0-.01.006-.018.006-.028L43.433 45.171zM8.687 74.861l27.796-17.91v62.212L8.687 102.285V74.861zm0 35.551 38.537 23.397L8.687 155.831V110.412zm7.002 49.421 66.005-37.715 69.145 37.715H15.689zm142.405-3.959L118.65 134.36l39.444-23.949v45.463zm0-53.589-27.797 16.877V56.951l27.797 17.911v27.423z"/><path d="M57.331 79.917h41.695c1.92.0 3.475-1.554 3.475-3.475V55.595c0-1.92-1.554-3.475-3.475-3.475H57.331c-1.92.0-3.475 1.554-3.475 3.475v20.847C53.856 78.363 55.411 79.917 57.331 79.917zm3.474-20.848h34.746v13.898H60.805V59.069z"/><rect x="53.856" y="86.866" width="55.593" height="6.949"/><rect x="53.856" y="100.765" width="55.593" height="6.949"/><path d="M147.67 41.697c.889.0 1.778-.339 2.457-1.018l12.283-12.283c1.357-1.357 1.357-3.556.0-4.913-1.357-1.358-3.556-1.357-4.913.0l-12.283 12.283c-1.357 1.357-1.357 3.556.0 4.913C145.892 41.358 146.781 41.697 147.67 41.697z"/><path d="M16.654 40.679c.679.679 1.568 1.018 2.457 1.018s1.778-.339 2.457-1.018c1.357-1.357 1.357-3.556.0-4.913L9.284 23.483c-1.357-1.357-3.556-1.357-4.913.0s-1.357 3.556.0 4.913L16.654 40.679z"/><path d="M118.584 24.076c.421.17.859.247 1.289.247 1.378.0 2.684-.825 3.227-2.185l6.949-17.373c.713-1.781-.156-3.804-1.937-4.516-1.764-.709-3.804.149-4.516 1.937l-6.949 17.373C115.934 21.341 116.802 23.364 118.584 24.076z"/><path d="M47.155 22.139c.543 1.361 1.849 2.185 3.227 2.185.431.0.869-.078 1.289-.248 1.781-.713 2.65-2.735 1.937-4.516L46.659 2.187C45.946.399 43.911-.46 42.143.25c-1.781.713-2.65 2.735-1.937 4.516l6.949 17.373z"/></g></g></g></svg>
+<p>Newsletter</p>
+</a>
+</li>
+<li class=share-label>
+<script async data-uid=d104ecfe6c src=https://paulbridger.ck.page/d104ecfe6c/index.js></script>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter" class="share-btn twitter"><svg class="widget-social__link-icon icon icon-twitter" width="24" height="24" viewBox="0 0 384 312"><path fill="#fff" d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5.0-78.8 35.3-78.8 78.8.0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3C20 26 16.1 39.6 16.1 54c0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1.0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4.0-12.6-.4-18.8-1.1C34.9 299 76.3 312 120.8 312c144.9.0 224.1-120 224.1-224.1.0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+<p>Twitter</p>
+</a>
+</li>
+<li class=share-label>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter">
+Follow on Twitter
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn" class="share-btn linkedin"><svg class="widget-social__link-icon icon icon-linkedin" width="24" height="24" viewBox="0 0 352 352"><path fill="#fff" d="M0 40v272c0 21.9 18.1 40 40 40h272c21.9.0 40-18.1 40-40V40c0-21.9-18.1-40-40-40H40C18.1.0.0 18.1.0 40zm312-8c4.6.0 8 3.4 8 8v272c0 4.6-3.4 8-8 8H40c-4.6.0-8-3.4-8-8V40c0-4.6 3.4-8 8-8H312zM59.5 87c0 15.2 12.3 27.5 27.5 27.5s27.5-12.3 27.5-27.5S102.2 59.5 87 59.5 59.5 71.8 59.5 87zM187 157h-1v-21h-45v152h47v-75c0-19.8 3.9-39 28.5-39 24.2.0 24.5 22.4 24.5 40v74h47v-83.5c0-40.9-8.7-72-56.5-72-23 0-38.2 12.6-44.5 24.5zM64 288h47.5V136H64V288z"/></svg>
+<p>LinkedIn</p>
+</a>
+</li>
+<li class=share-label>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn">
+Connect on LinkedIn
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=mailto:paul@paulbridger.com target=_blank class="share-btn email"><svg class="widget-social__link-icon icon icon-mail" width="24" height="24" viewBox="0 0 416 288"><path fill="#fff" d="m0 16v256 16h16 384 16v-16V16 0h-16H16 0zm347 16-139 92.5L69 32zM199 157.5l9 5.5 9-5.5L384 46v210H32V46z"/></svg>
+<p>Email</p>
+</a>
+</li>
+<li class=share-label>
+<a href=mailto:paul@paulbridger.com target=_blank>
+Contact by Email
+</a>
+</li>
+</ul>
+</section>
+</article>
+<footer class=book-footer>
+<div class="flex flex-wrap justify-between">
+</div>
+<script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script>
+<hr>
+<b>&copy; Paul Bridger 2020</b>
+</footer>
+<label for=menu-control class="hidden book-menu-overlay"></label>
+</div>
+<aside class=book-toc>
+<div class=book-toc-content>
+<nav>
+<ul>
+<li class=book-section-flat>
+<strong>Categories</strong>
+<ul>
+<li class="flex justify-between">
+<a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a>
+<span>6</span>
+</li>
+<li class="flex justify-between">
+<a href=/categories/visual-analytics/>Visual Analytics</a>
+<span>4</span>
+</li>
+</ul>
+</li>
+<li class=book-section-flat>
+<strong>Tags</strong>
+<ul>
+<li class="flex justify-between">
+<a href=/tags/optimization/>Optimization</a>
+<span>5</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/pytorch/>Pytorch</a>
+<span>6</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/nsight-systems/>Nsight Systems</a>
+<span>5</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/nvtx/>NVTX</a>
+<span>3</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/quantization/>Quantization</a>
+<span>2</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/tensorrt/>TensorRT</a>
+<span>4</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/torchscript/>TorchScript</a>
+<span>3</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/object-detection/>Object Detection</a>
+<span>4</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/onnx/>ONNX</a>
+<span>3</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/ssd300/>SSD300</a>
+<span>4</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/deepstream/>DeepStream</a>
+<span>1</span>
+</li>
+<li class="flex justify-between">
+<a href=/tags/gstreamer/>Gstreamer</a>
+<span>2</span>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</aside>
+</main>
+</body>
+</html>

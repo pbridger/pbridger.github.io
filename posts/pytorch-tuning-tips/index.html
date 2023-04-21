@@ -1,0 +1,360 @@
+<!doctype html><html lang=en dir=ltr>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="PyTorch in 2023 is a complex beast, with many great performance features hidden away. Simple top-N lists are weak content, so I&rsquo;ve empirically tested the most important PyTorch tuning techniques and settings in all combinations. I&rsquo;ve benchmarked inference across a handful of different model architectures and sizes, different versions of PyTorch and even different Docker containers.">
+<meta name=theme-color content="#FFFFFF"><meta property="og:title" content="PyTorch Performance Features and How They Interact">
+<meta property="og:description" content="PyTorch in 2023 is a complex beast, with many great performance features hidden away. Simple top-N lists are weak content, so I&rsquo;ve empirically tested the most important PyTorch tuning techniques and settings in all combinations. I&rsquo;ve benchmarked inference across a handful of different model architectures and sizes, different versions of PyTorch and even different Docker containers.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://paulbridger.com/posts/pytorch-tuning-tips/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2023-04-14T08:43:23+02:00">
+<meta property="article:modified_time" content="2023-04-14T08:43:23+02:00">
+<title>PyTorch Performance Features and How They Interact | paulbridger.com</title>
+<link rel=manifest href=/manifest.json>
+<link rel=icon href=/favicon.png type=image/x-icon>
+<link rel=stylesheet href=/book.min.b5056d4fbae4a365a3e7a6f0af8a29daf564e71fa285cacf5f41e0c78741630d.css integrity="sha256-tQVtT7rko2Wj56bwr4op2vVk5x+ihcrPX0Hgx4dBYw0=" crossorigin=anonymous>
+<script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script>
+<script async src=https://www.google-analytics.com/analytics.js></script>
+<script src=https://d3js.org/d3.v7.min.js></script>
+<script src=https://cdn.plot.ly/plotly-2.18.2.min.js></script>
+<meta name=twitter:card content="summary">
+<meta name=twitter:site content="@paul_bridger">
+<meta name=twitter:title content="PyTorch Performance Features and How They Interact">
+<meta name=twitter:image content="https://paulbridger.com/posts/pytorch-tuning-tips/images/pytorch_tuning_tips.png">
+</head>
+<body dir=ltr>
+<input type=checkbox class="hidden toggle" id=menu-control>
+<input type=checkbox class="hidden toggle" id=toc-control>
+<main class="container flex">
+<aside class=book-menu>
+<div class=book-menu-content>
+<nav>
+<h2 class=book-brand>
+<a href=/><span>paulbridger.com</span>
+</a>
+</h2>
+<ul>
+<li>
+<a href=https://paulbridger.com/posts/pytorch-tuning-tips/ class=active>PyTorch Performance Features and How They Interact</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/nsight-systems-systematic-optimization/>Solving Machine Learning Performance Anti-Patterns: a Systematic Approach</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pytorch-pipeline/>A Simple and Flexible Pytorch Video Pipeline</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pipeline-tuning/>Object Detection from 9 FPS to 650 FPS in 6 Steps</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-deepstream-pipeline/>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/tensorrt-object-detection-quantized/>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/mastering-torchscript/>Mastering TorchScript: Tracing vs Scripting, Device Pinning, Direct Graph Modification</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/consulting/>Consulting / Hire Me</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/about/>About Paul Bridger</a>
+</li>
+</ul>
+</nav>
+<script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+</div>
+</aside>
+<div class=book-page>
+<header class=book-header>
+<div class="flex align-center justify-between">
+<label for=menu-control>
+<img src=/svg/menu.svg class=book-icon alt=Menu>
+</label>
+<strong>PyTorch Performance Features and How They Interact</strong>
+<label for=toc-control>
+<img src=/svg/toc.svg class=book-icon alt="Table of Contents">
+</label>
+</div>
+<aside class="hidden clearfix">
+<div class=book-toc-div>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#intro>Intro</a></li>
+<li><a href=#always-use-mixed-precision>Always use Mixed Precision</a></li>
+<li><a href=#use-channels-last-memory-format-for-convolutional-models>Use Channels-Last memory format for convolutional models</a></li>
+<li><a href=#use-cudnn-benchmarking-for-convolutional-models>Use cuDNN Benchmarking for convolutional models</a></li>
+<li><a href=#use-pytorch-20-or-21-if-possible>Use PyTorch 2.0 (Or 2.1) if possible</a></li>
+<li><a href=#torchinference_mode-torchno_grad-and-modeleval-are-not-interchangeable><code>torch.inference_mode()</code>, <code>torch.no_grad()</code> and <code>model.eval()</code> are not interchangeable</a></li>
+<li><a href=#final-thoughts>Final thoughts</a></li>
+</ul>
+</nav>
+<nav>
+</nav>
+</div>
+</aside>
+</header>
+<article class=markdown>
+<h1>
+<a href=/posts/pytorch-tuning-tips/>PyTorch Performance Features and How They Interact</a>
+</h1>
+<h5>April 14, 2023</h5>
+<div>
+<a href=/categories/machine-learning-productionization/>Machine Learning Productionization</a>
+</div>
+<div>
+<a href=/tags/pytorch/>Pytorch</a>,
+<a href=/tags/optimization/>Optimization</a>
+</div>
+<h2 id=intro>
+Intro
+<a class=anchor href=#intro>#</a>
+</h2>
+<p>PyTorch in 2023 is a complex beast, with many great performance features hidden away. Simple top-N lists are weak content, so I&rsquo;ve empirically tested the most important PyTorch tuning techniques and settings in all combinations. I&rsquo;ve benchmarked inference across a handful of different model architectures and sizes, different versions of PyTorch and even different Docker containers.</p>
+<blockquote class="book-hint info">
+<p>The resulting high-dimensional cube of performance metrics has over 800 data points — each dot in the following scatter plots represents a unique experiment, a combination of features enabled or not.</p>
+<p>Many interesting relationships are evident in the data. The scatter plots generally highlight a dominant effect with color, with more subtle effects remaining visible in the structure of the points.</p>
+</blockquote>
+<p>The article is structured as a set of high-level recommendations but the headlines are really 101-level PyTorch content — the deeper value is in the secondary interactions, so you may just have to read the text.</p>
+<h2 id=always-use-mixed-precision>
+Always use Mixed Precision
+<a class=anchor href=#always-use-mixed-precision>#</a>
+</h2>
+<p><strong><code>torch.autocast()</code> is the modern, automatic way to run your model with mixed precision while ensuring gradient accuracy.</strong></p>
+<p>Reduced precision on modern GPU architectures increases throughput and reduces memory usage (which also increases effective memory bandwidth). <code>torch.autocast</code> will detect which layers and ops can be run in reduced precision (fp16/bf16/fp8) and seamlessly cast tensors as required.</p>
+<p>Mixed-precision inference is enabled via a simple context-manager:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=k>with</span> <span class=n>torch</span><span class=o>.</span><span class=n>autocast</span><span class=p>(</span><span class=s2>&#34;cuda&#34;</span><span class=p>):</span>
+</span>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
+    <span class=n>loss</span> <span class=o>=</span> <span class=n>loss_fn</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>target</span><span class=p>)</span>
+<span class=n>loss</span><span class=o>.</span><span class=n>backward</span><span class=p>()</span>
+<span class=n>optimizer</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
+</code></pre></div>
+<ul>
+<li>
+<p>Despite <code>torch.autocast()</code> being &ldquo;automatic&rdquo; it is worth closely checking that output remains acceptable — I&rsquo;ve seen several cases where language models and CLIP-guided GAN systems degrade unacceptably with autocast.</p>
+</li>
+<li>
+<p>If training, use a <a href=https://pytorch.org/docs/stable/notes/amp_examples.html#working-with-scaled-gradients>GradScaler</a> if your gradients could underflow in fp16.</p>
+</li>
+</ul>
+<blockquote class="book-hint info">
+Use <code>autocast('cuda', dtype=torch.bfloat16)</code> if your model needs the greater value range of bf16 instead of fp16&rsquo;s greater precision (>= Ampere architecture).
+</blockquote>
+<p><code>torch.autocast()</code> has a marked throughput impact across model architectures:</p>
+<div id=scripts/charts/mixed-precision.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/mixed-precision.json").then(function(a){Plotly.newPlot('scripts/charts/mixed-precision.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p>In the scatter plot above several points are clear:</p>
+<ul>
+<li><strong>Mixed precision is essential for good inference throughput on GPUs</strong> — no surprise here, the hardware that accelerates lower-precision compute has been around for many years and generations by now.</li>
+<li><strong>A lot of unexplained variance remains</strong> in the data, and this is largely explained in later sections as we dig into the other significant performance settings.</li>
+</ul>
+<h2 id=use-channels-last-memory-format-for-convolutional-models>
+Use Channels-Last memory format for convolutional models
+<a class=anchor href=#use-channels-last-memory-format-for-convolutional-models>#</a>
+</h2>
+<p><strong>Switch from the default NCHW layout to channels-last NHWC memory format, improving data locality and unlocking optimized convolution kernels.</strong></p>
+<p>Here&rsquo;s how to convert your model and input to channels-last format:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=n>model</span> <span class=o>=</span> <span class=n>model</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>memory_format</span><span class=o>=</span><span class=n>torch</span><span class=o>.</span><span class=n>channels_last</span><span class=p>)</span>
+</span><span class=k>with</span> <span class=n>torch</span><span class=o>.</span><span class=n>autocast</span><span class=p>(</span><span class=s1>&#39;cuda&#39;</span><span class=p>):</span>
+<span class=hl>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>memory_format</span><span class=o>=</span><span class=n>torch</span><span class=o>.</span><span class=n>channels_last</span><span class=p>))</span>
+</span></code></pre></div>
+<p>Note that this is only an internal memory format change — from an API perspective tensor shapes remain the same and tensor indexing is unchanged, including in your output tensor. This super convenient fact is due to PyTorch separating and hiding tensor storage details from client code. Feel free to continue pretending you are accessing contiguous memory, and the striding magic will work seamlessly (or throw an exception).</p>
+<blockquote class="book-hint info">
+<ul>
+<li>Channels-last works best for convolution-heavy models with float16 precision.</li>
+<li>Be sure to match model (layer) memory format to input tensor memory format (both contiguous or both channels-last).</li>
+</ul>
+</blockquote>
+<p>After removing the effect of mixed precision (all compute is at float16), <strong><code>torch.channels_last</code> is the next most important factor for convolution-heavy models</strong>:</p>
+<div id=scripts/charts/channels-last.json class=plotly style=height:200px></div>
+<script>d3.json("scripts/charts/channels-last.json").then(function(a){Plotly.newPlot('scripts/charts/channels-last.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p>Channels-last seems to improve throughput substantially for all models and conditions, but too much noise/structure remains in the data in this simple chart to be sure. A large part of this can be explained by breaking out the different docker containers used. The chart below shows that <strong>containers built by NVIDIA provide much higher throughput in combination with channels-last</strong> (these are accessible via <a href=https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch>NGC</a>).</p>
+<div id=scripts/charts/channels-last-docker.json class=plotly style=height:350px></div>
+<script>d3.json("scripts/charts/channels-last-docker.json").then(function(a){Plotly.newPlot('scripts/charts/channels-last-docker.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<h2 id=use-cudnn-benchmarking-for-convolutional-models>
+Use cuDNN Benchmarking for convolutional models
+<a class=anchor href=#use-cudnn-benchmarking-for-convolutional-models>#</a>
+</h2>
+<p><strong><a href=https://pytorch.org/docs/stable/backends.html#torch.backends.cudnn.torch.backends.cudnn.benchmark>Runtime benchmarking for cuDNN convolutions</a> will automatically select the fastest kernel implementations for your tensor dimensions and hardware.</strong></p>
+<p>cuDNN is a library of optimized kernels for deep neural networks created by NVIDIA. Turning on cuDNN benchmarking enables a just-in-time (JIT) profile-based optimization process to select the best kernel implementations from cuDNN for your specific layers, tensor sizes and hardware.</p>
+<p>Enabling it is easy:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=n>torch</span><span class=o>.</span><span class=n>backends</span><span class=o>.</span><span class=n>cudnn</span><span class=o>.</span><span class=n>benchmark</span> <span class=o>=</span> <span class=kc>True</span>
+</span><span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span> <span class=c1># benchmarking occurs JIT during first execution</span>
+<span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span> <span class=c1># subsequent executions use the fastest available kernels</span>
+</code></pre></div>
+<blockquote class="book-hint info">
+<p>cuDNN benchmarking will incur a significant first-run delay while the model is optimized, and this profiling cost will be incurred for all executions with changed tensor dimensions.</p>
+<p>There is no way to persist the profiled optimizations, so in production you&rsquo;ll want to incur this delay during a warm-up phase.</p>
+</blockquote>
+<p>cuDNN benchmarking is easy to experiment with, so is almost always worth trying if you can tolerate the container warm-up time.</p>
+<p>Turning off channels-last and only using NGC containers, cuDNN benchmarking still provides some boost to the convolutional models:</p>
+<div id=scripts/charts/cudnn-benchmark.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/cudnn-benchmark.json").then(function(a){Plotly.newPlot('scripts/charts/cudnn-benchmark.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p>Focusing on the convolutional models and reintroducing channels-last, we can see that both techniques are independently valuable:</p>
+<div id=scripts/charts/cudnn-benchmark-channels-last.json class=plotly style=height:350px></div>
+<script>d3.json("scripts/charts/cudnn-benchmark-channels-last.json").then(function(a){Plotly.newPlot('scripts/charts/cudnn-benchmark-channels-last.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<h2 id=use-pytorch-20-or-21-if-possible>
+Use PyTorch 2.0 (Or 2.1) if possible
+<a class=anchor href=#use-pytorch-20-or-21-if-possible>#</a>
+</h2>
+<p><strong>Introduced in PyTorch 2.0, <code>torch.compile</code> can deliver substantial improvements in inference and training throughput.</strong></p>
+<p><code>torch.compile</code> supersedes previous PyTorch model compilation efforts (eg. TorchScript) and aims for both <strong>very high ease of use</strong> and <strong>excellent performance</strong>. Previous PyTorch-native techniques often needed significant code changes and performance was not comparable to more-involved 3rd-party approaches like TensorRT compilation, so <code>torch.compile</code> aims for the best of both worlds.</p>
+<blockquote class="book-hint warning">
+As of April 2023 <code>torch.compile</code> doesn&rsquo;t yet fully succeed in either of these aims — empirical evidence below.
+</blockquote>
+<p>Using <code>torch.compile</code> could not be easier:
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=n>model</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>compile</span><span class=p>(</span><span class=n>model</span><span class=p>)</span>
+</span><span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
+<span class=n>loss</span> <span class=o>=</span> <span class=n>loss_fn</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>target</span><span class=p>)</span>
+<span class=n>loss</span><span class=o>.</span><span class=n>backward</span><span class=p>()</span>
+<span class=n>optimizer</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
+</code></pre></div>
+</p>
+<p>With the above simple one-liner, <code>torch.compile</code> will seamlessly just-in-time (JIT) compile arbitrary models and PyTorch code, splitting the computational graph as required into compilable and Python-native subgraphs. This compilation supports both the backward and forward pass, so is suitable for inference and optimization unlike previous approaches. It can also deal with dynamic tensor shapes if desired.</p>
+<blockquote class="book-hint info">
+The default TorchInductor backend compiles graphs into high performance <a href=https://openai.com/research/triton>Triton</a>-based kernels for on-GPU execution. <a href=https://openai.com/research/triton>OpenAI&rsquo;s Triton</a> is an abstraction over NVIDIA&rsquo;s CUDA, so in the future this may allow highly efficient PyTorch execution on a wider range of hardware.
+</blockquote>
+<p>Performance and compatibility are a mixed bag, and this is why I claim <code>torch.compile</code> doesn&rsquo;t yet fully deliver on either the ease-of-use or performance aims. The chart below shows the effect of compilation, and is split vertically to separate PyTorch 2.0.0 and 2.1.0 (unreleased, nightly).</p>
+<div id=scripts/charts/torch-compile.json class=plotly style=height:450px></div>
+<script>d3.json("scripts/charts/torch-compile.json").then(function(a){Plotly.newPlot('scripts/charts/torch-compile.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p>We can make several observations:</p>
+<ul>
+<li>PyTorch version matters: 2.0.0 doesn&rsquo;t compile the language models successfully. 2.1.0 increases coverage but doesn&rsquo;t deliver any throughput gains for the language models.</li>
+<li>The convolutional models show strong gains, but additional structure is clear in the data: <code>torch.compile</code> is not a replacement for using other parts of Pytorch correctly.</li>
+<li>Channels-last and inference-mode are disabled here, since compilation fails.</li>
+</ul>
+<p>When considering only torch.compiled data points, the continued importance of using eval mode correctly for inference becomes clear:</p>
+<div id=scripts/charts/torch-compile-eval.json class=plotly style=height:450px></div>
+<script>d3.json("scripts/charts/torch-compile-eval.json").then(function(a){Plotly.newPlot('scripts/charts/torch-compile-eval.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p>It&rsquo;s worth digging a little into eval mode and a few of the other inference settings.</p>
+<h2 id=torchinference_mode-torchno_grad-and-modeleval-are-not-interchangeable>
+<code>torch.inference_mode()</code>, <code>torch.no_grad()</code> and <code>model.eval()</code> are not interchangeable
+<a class=anchor href=#torchinference_mode-torchno_grad-and-modeleval-are-not-interchangeable>#</a>
+</h2>
+<p><strong>While <code>model.eval()</code>, <code>torch.inference_mode()</code>, and <code>torch.no_grad()</code> seem like they do similar things, they are all important and independently useful.</strong></p>
+<p><strong>Use <a href><code>model.eval()</code></a> to prepare modules and layers for inference.</strong> This has layer-specific effects, eg. disabling dropout layers, altering batch-norm behavior etc. If you are doing inference, you definitely don&rsquo;t want to forget this.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=n>model</span> <span class=o>=</span> <span class=n>model</span><span class=o>.</span><span class=n>eval</span><span class=p>()</span>
+</span><span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
+</code></pre></div>
+<p><code>model.eval()</code> improves inference throughput for all model architectures:</p>
+<div id=scripts/charts/eval.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/eval.json").then(function(a){Plotly.newPlot('scripts/charts/eval.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p><strong>Use <a href=https://pytorch.org/docs/stable/generated/torch.inference_mode.html><code>torch.inference_mode()</code></a> to prevent gradients from being computed/stored during inference</strong>, allowing Pytorch to skip some tensor book-keeping and checks. This largely replaces <code>torch.no_grad()</code> as the way to tell PyTorch that the execution will not require gradient backprop.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=k>with</span> <span class=n>torch</span><span class=o>.</span><span class=n>inference_mode</span><span class=p>():</span>
+</span>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
+</code></pre></div>
+<p><code>torch.inference_mode()</code> less consistently improves throughput across architectures:</p>
+<div id=scripts/charts/inference-mode.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/inference-mode.json").then(function(a){Plotly.newPlot('scripts/charts/inference-mode.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<blockquote class="book-hint info">
+NB. The above <code>model.eval()</code> and <code>torch.inference_mode()</code> improvements are often cumulative — see the chart below.
+</blockquote>
+<div id=scripts/charts/eval-inference-mode.json class=plotly style=height:400px></div>
+<script>d3.json("scripts/charts/eval-inference-mode.json").then(function(a){Plotly.newPlot('scripts/charts/eval-inference-mode.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p><strong>Only consider <a href><code>torch.no_grad()</code></a> if <code>torch.inference_mode()</code> doesn&rsquo;t work.</strong> If you want the performance benefits of <code>torch.inference_mode()</code> for a section of code but need to use the tensor results in grad mode later, <code>torch.no_grad()</code> might be for you. See <a href=https://pytorch.org/docs/stable/notes/autograd.html#grad-modes>Autograd mechanics</a> for more detail.</p>
+<h2 id=final-thoughts>
+Final thoughts
+<a class=anchor href=#final-thoughts>#</a>
+</h2>
+<p>For me this article raised many more questions than it answered — the anomalies and hidden relationships highlighted above are just begging to be traced and understood more deeply.</p>
+<p>These recommendations are not ground-breaking, they are arguably just &ldquo;using PyTorch correctly&rdquo;, but I hope I&rsquo;ve made a few key points clearly and empirically:</p>
+<ul>
+<li><strong>Getting everything right is much better than getting everything wrong</strong> — obviously, but this final chart shows the massive throughput difference between baseline and the optimal configuration:</li>
+</ul>
+<div id=scripts/charts/feature-set.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/feature-set.json").then(function(a){Plotly.newPlot('scripts/charts/feature-set.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<ul>
+<li>
+<p><strong>There is no all-encompassing &ldquo;go fast&rdquo; option for inference in PyTorch</strong> — especially considering different model architectures, you will need to iteratively experiment and measure to get best performance. This remains true in PyTorch 2.0 and beyond. To be truly effective in this process you also need to do some profiling (using a tool like NVIDIA&rsquo;s <a href=https://developer.nvidia.com/nsight-systems>Nsight Systems</a>) — measurements can tell you when performance has changed but can&rsquo;t tell you what to try next.</p>
+</li>
+<li>
+<p><strong>System/architecture issues are important too</strong> — for example, how your containers or core libraries were built can impact performance as much as correct code. Use the latest PyTorch, CUDA, cuDNN and drivers if you can.</p>
+</li>
+</ul>
+<p>Thanks for reading, and I hope you found this useful!</p>
+</article>
+<article class="markdown social">
+<hr>
+<section class=social-share>
+<ul class=share-icons>
+<li>
+<a href target=_blank class="share-btn newsletter"><svg class="widget-social__link-icon icon icon-mail" fill="#fff" width="24" height="24" viewBox="0 0 166.781 166.781"><g><g><g><path d="M163.451 70.046l-32.35-20.847c-.253-.161-.532-.222-.804-.312v-7.19c0-1.92-1.554-3.475-3.475-3.475H113.92L86.97 21.378c-1.126-.706-2.558-.706-3.685.0l-26.95 16.844H39.958c-1.92.0-3.475 1.554-3.475 3.475v7.188c-.272.09-.552.152-.804.314L3.329 70.046c-.991.641-1.592 1.741-1.592 2.921v90.339c0 1.92 1.554 3.475 3.475 3.475h156.356c1.92.0 3.475-1.554 3.475-3.475V72.968C165.043 71.787 164.442 70.688 163.451 70.046zM85.128 28.423l15.681 9.799H69.447l15.681-9.799zM43.433 45.171h79.915v78.178c0 .01.006.018.006.029l-11.754 7.137-28.284-15.427c-1.055-.57-2.338-.567-3.386.034l-25.81 14.749-10.692-6.492c0-.01.006-.018.006-.028L43.433 45.171zM8.687 74.861l27.796-17.91v62.212L8.687 102.285V74.861zm0 35.551 38.537 23.397L8.687 155.831V110.412zm7.002 49.421 66.005-37.715 69.145 37.715H15.689zm142.405-3.959L118.65 134.36l39.444-23.949v45.463zm0-53.589-27.797 16.877V56.951l27.797 17.911v27.423z"/><path d="M57.331 79.917h41.695c1.92.0 3.475-1.554 3.475-3.475V55.595c0-1.92-1.554-3.475-3.475-3.475H57.331c-1.92.0-3.475 1.554-3.475 3.475v20.847C53.856 78.363 55.411 79.917 57.331 79.917zm3.474-20.848h34.746v13.898H60.805V59.069z"/><rect x="53.856" y="86.866" width="55.593" height="6.949"/><rect x="53.856" y="100.765" width="55.593" height="6.949"/><path d="M147.67 41.697c.889.0 1.778-.339 2.457-1.018l12.283-12.283c1.357-1.357 1.357-3.556.0-4.913-1.357-1.358-3.556-1.357-4.913.0l-12.283 12.283c-1.357 1.357-1.357 3.556.0 4.913C145.892 41.358 146.781 41.697 147.67 41.697z"/><path d="M16.654 40.679c.679.679 1.568 1.018 2.457 1.018s1.778-.339 2.457-1.018c1.357-1.357 1.357-3.556.0-4.913L9.284 23.483c-1.357-1.357-3.556-1.357-4.913.0s-1.357 3.556.0 4.913L16.654 40.679z"/><path d="M118.584 24.076c.421.17.859.247 1.289.247 1.378.0 2.684-.825 3.227-2.185l6.949-17.373c.713-1.781-.156-3.804-1.937-4.516-1.764-.709-3.804.149-4.516 1.937l-6.949 17.373C115.934 21.341 116.802 23.364 118.584 24.076z"/><path d="M47.155 22.139c.543 1.361 1.849 2.185 3.227 2.185.431.0.869-.078 1.289-.248 1.781-.713 2.65-2.735 1.937-4.516L46.659 2.187C45.946.399 43.911-.46 42.143.25c-1.781.713-2.65 2.735-1.937 4.516l6.949 17.373z"/></g></g></g></svg>
+<p>Newsletter</p>
+</a>
+</li>
+<li class=share-label>
+<script async data-uid=d104ecfe6c src=https://paulbridger.ck.page/d104ecfe6c/index.js></script>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter" class="share-btn twitter"><svg class="widget-social__link-icon icon icon-twitter" width="24" height="24" viewBox="0 0 384 312"><path fill="#fff" d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5.0-78.8 35.3-78.8 78.8.0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3C20 26 16.1 39.6 16.1 54c0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1.0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4.0-12.6-.4-18.8-1.1C34.9 299 76.3 312 120.8 312c144.9.0 224.1-120 224.1-224.1.0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+<p>Twitter</p>
+</a>
+</li>
+<li class=share-label>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter">
+Follow on Twitter
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn" class="share-btn linkedin"><svg class="widget-social__link-icon icon icon-linkedin" width="24" height="24" viewBox="0 0 352 352"><path fill="#fff" d="M0 40v272c0 21.9 18.1 40 40 40h272c21.9.0 40-18.1 40-40V40c0-21.9-18.1-40-40-40H40C18.1.0.0 18.1.0 40zm312-8c4.6.0 8 3.4 8 8v272c0 4.6-3.4 8-8 8H40c-4.6.0-8-3.4-8-8V40c0-4.6 3.4-8 8-8H312zM59.5 87c0 15.2 12.3 27.5 27.5 27.5s27.5-12.3 27.5-27.5S102.2 59.5 87 59.5 59.5 71.8 59.5 87zM187 157h-1v-21h-45v152h47v-75c0-19.8 3.9-39 28.5-39 24.2.0 24.5 22.4 24.5 40v74h47v-83.5c0-40.9-8.7-72-56.5-72-23 0-38.2 12.6-44.5 24.5zM64 288h47.5V136H64V288z"/></svg>
+<p>LinkedIn</p>
+</a>
+</li>
+<li class=share-label>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn">
+Connect on LinkedIn
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=mailto:paul@paulbridger.com target=_blank class="share-btn email"><svg class="widget-social__link-icon icon icon-mail" width="24" height="24" viewBox="0 0 416 288"><path fill="#fff" d="m0 16v256 16h16 384 16v-16V16 0h-16H16 0zm347 16-139 92.5L69 32zM199 157.5l9 5.5 9-5.5L384 46v210H32V46z"/></svg>
+<p>Email</p>
+</a>
+</li>
+<li class=share-label>
+<a href=mailto:paul@paulbridger.com target=_blank>
+Contact by Email
+</a>
+</li>
+</ul>
+</section>
+</article>
+<footer class=book-footer>
+<div class="flex flex-wrap justify-between">
+</div>
+<script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script>
+<hr>
+<b>&copy; Paul Bridger 2020</b>
+</footer>
+<div class=book-comments>
+</div>
+<label for=menu-control class="hidden book-menu-overlay"></label>
+</div>
+<aside class=book-toc>
+<div class=book-toc-content>
+<div class=book-toc-div>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#intro>Intro</a></li>
+<li><a href=#always-use-mixed-precision>Always use Mixed Precision</a></li>
+<li><a href=#use-channels-last-memory-format-for-convolutional-models>Use Channels-Last memory format for convolutional models</a></li>
+<li><a href=#use-cudnn-benchmarking-for-convolutional-models>Use cuDNN Benchmarking for convolutional models</a></li>
+<li><a href=#use-pytorch-20-or-21-if-possible>Use PyTorch 2.0 (Or 2.1) if possible</a></li>
+<li><a href=#torchinference_mode-torchno_grad-and-modeleval-are-not-interchangeable><code>torch.inference_mode()</code>, <code>torch.no_grad()</code> and <code>model.eval()</code> are not interchangeable</a></li>
+<li><a href=#final-thoughts>Final thoughts</a></li>
+</ul>
+</nav>
+<nav>
+</nav>
+</div>
+</div>
+</aside>
+</main>
+</body>
+</html>
