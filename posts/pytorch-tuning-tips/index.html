@@ -16,11 +16,12 @@
 <script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script>
 <script async src=https://www.google-analytics.com/analytics.js></script>
 <script src=https://d3js.org/d3.v7.min.js></script>
-<script src=https://cdn.plot.ly/plotly-2.18.2.min.js></script>
+<script src=https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.18.2/plotly.min.js></script>
 <meta name=twitter:card content="summary">
 <meta name=twitter:site content="@paul_bridger">
 <meta name=twitter:title content="PyTorch Performance Features and How They Interact">
 <meta name=twitter:image content="https://paulbridger.com/posts/pytorch-tuning-tips/images/pytorch_tuning_tips.png">
+<meta property="og:image" content="https://paulbridger.com/posts/pytorch-tuning-tips/images/pytorch_tuning_tips.png">
 </head>
 <body dir=ltr>
 <input type=checkbox class="hidden toggle" id=menu-control>
@@ -199,7 +200,7 @@ Use PyTorch 2.0 (Or 2.1) if possible
 <a class=anchor href=#use-pytorch-20-or-21-if-possible>#</a>
 </h2>
 <p><strong>Introduced in PyTorch 2.0, <code>torch.compile</code> can deliver substantial improvements in inference and training throughput.</strong></p>
-<p><code>torch.compile</code> supersedes previous PyTorch model compilation efforts (eg. TorchScript) and aims for both <strong>very high ease of use</strong> and <strong>excellent performance</strong>. Previous PyTorch-native techniques often needed significant code changes and performance was not comparable to more-involved 3rd-party approaches like TensorRT compilation, so <code>torch.compile</code> aims for the best of both worlds.</p>
+<p><code>torch.compile</code> supersedes previous PyTorch model compilation efforts (e.g. TorchScript) and aims for both <strong>very high ease of use</strong> and <strong>excellent performance</strong>. Previous PyTorch-native techniques often needed significant code changes and performance was not comparable to more-involved 3rd-party approaches like TensorRT compilation, so <code>torch.compile</code> aims for the best of both worlds.</p>
 <blockquote class="book-hint warning">
 As of April 2023 <code>torch.compile</code> doesn&rsquo;t yet fully succeed in either of these aims — empirical evidence below.
 </blockquote>
@@ -221,7 +222,7 @@ The default TorchInductor backend compiles graphs into high performance <a href=
 <p>We can make several observations:</p>
 <ul>
 <li>PyTorch version matters: 2.0.0 doesn&rsquo;t compile the language models successfully. 2.1.0 increases coverage but doesn&rsquo;t deliver any throughput gains for the language models.</li>
-<li>The convolutional models show strong gains, but additional structure is clear in the data: <code>torch.compile</code> is not a replacement for using other parts of Pytorch correctly.</li>
+<li>The convolutional models show strong gains, but additional structure is clear in the data: <code>torch.compile</code> is not a replacement for using other parts of PyTorch correctly.</li>
 <li>Channels-last and inference-mode are disabled here, since compilation fails.</li>
 </ul>
 <p>When considering only torch.compiled data points, the continued importance of using eval mode correctly for inference becomes clear:</p>
@@ -240,7 +241,7 @@ The default TorchInductor backend compiles graphs into high performance <a href=
 <p><code>model.eval()</code> improves inference throughput for all model architectures:</p>
 <div id=scripts/charts/eval.json class=plotly style=height:300px></div>
 <script>d3.json("scripts/charts/eval.json").then(function(a){Plotly.newPlot('scripts/charts/eval.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
-<p><strong>Use <a href=https://pytorch.org/docs/stable/generated/torch.inference_mode.html><code>torch.inference_mode()</code></a> to prevent gradients from being computed/stored during inference</strong>, allowing Pytorch to skip some tensor book-keeping and checks. This largely replaces <code>torch.no_grad()</code> as the way to tell PyTorch that the execution will not require gradient backprop.</p>
+<p><strong>Use <a href=https://pytorch.org/docs/stable/generated/torch.inference_mode.html><code>torch.inference_mode()</code></a> to prevent gradients from being computed/stored during inference</strong>, allowing PyTorch to skip some tensor book-keeping and checks. This largely replaces <code>torch.no_grad()</code> as the way to tell PyTorch that the execution will not require gradient backprop.</p>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=k>with</span> <span class=n>torch</span><span class=o>.</span><span class=n>inference_mode</span><span class=p>():</span>
 </span>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
 </code></pre></div>
@@ -258,7 +259,7 @@ Final thoughts
 <a class=anchor href=#final-thoughts>#</a>
 </h2>
 <p>For me this article raised many more questions than it answered — the anomalies and hidden relationships highlighted above are just begging to be traced and understood more deeply.</p>
-<p>These recommendations are not ground-breaking, they are arguably just &ldquo;using PyTorch correctly&rdquo;, but I hope I&rsquo;ve made a few key points clearly and empirically:</p>
+<p>These recommendations are not ground-breaking, they are arguably just &ldquo;using PyTorch correctly,&rdquo; but I hope I&rsquo;ve made a few key points clearly and empirically:</p>
 <ul>
 <li><strong>Getting everything right is much better than getting everything wrong</strong> — obviously, but this final chart shows the massive throughput difference between baseline and the optimal configuration:</li>
 </ul>
