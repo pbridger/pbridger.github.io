@@ -1,0 +1,13 @@
+torch-version,cuda-version,cudnn-version,model-arch,optimize,batch-size,resolution-h,resolution-w,pixels,iterations,inference-mode,no-grad,cudnn-benchmark,autocast-dtype,model-cast-dtype,channels-last,pessimization,jit-script,eval,compile,compile-mode,set-to-none,bnb,model-params,first-batch (ms),throughput (it/s),peak-memory (GB),delta-memory (GB),stage
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,False,44549160,168,425,0.023,0.023,inputs-created
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,False,44549160,168,425,0.19,0.167,model-ready
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,False,44549160,168,425,10.045,9.855,peak-main-loop
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,False,44549160,168,425,5.113,-4.9319999999999995,post-main-loop
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,None,False,False,False,False,False,None,False,False,44549160,209,1055,0.012,0.012,inputs-created
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,None,False,False,False,False,False,None,False,False,44549160,209,1055,0.178,0.16599999999999998,model-ready
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,None,False,False,False,False,False,None,False,False,44549160,209,1055,5.26,5.082,peak-main-loop
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,None,False,False,False,False,False,None,False,False,44549160,209,1055,2.769,-2.4909999999999997,post-main-loop
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,float16,False,False,False,False,False,None,False,False,44549160,230,915,0.012,0.012,inputs-created
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,float16,False,False,False,False,False,None,False,False,44549160,230,915,0.097,0.085,model-ready
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,float16,False,False,False,False,False,None,False,False,44549160,230,915,5.084,4.986999999999999,peak-main-loop
+2.1.0,12.1,8.900,resnet101,False,32,256,256,65536,25,False,False,False,float16,float16,False,False,False,False,False,None,False,False,44549160,230,915,2.593,-2.4909999999999997,post-main-loop

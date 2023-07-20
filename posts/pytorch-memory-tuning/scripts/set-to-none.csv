@@ -1,0 +1,25 @@
+torch-version,cuda-version,cudnn-version,model-arch,optimize,optimizer,batch-size,resolution-h,resolution-w,pixels,iterations,inference-mode,no-grad,cudnn-benchmark,autocast-dtype,model-cast-dtype,channels-last,pessimization,jit-script,eval,compile,compile-mode,set-to-none,mem-ckpt,bnb,paged,model-params,first-batch (ms),throughput (it/s),peak-memory (GB),delta-memory (GB),stage
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,518.47,98.81,0.023,0.023,inputs-created
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,518.47,98.81,0.248,0.225,model-ready
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,518.47,98.81,8.06,7.812,peak-main-loop
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,518.47,98.81,0.934,-7.126,post-main-loop
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,527.4,98.53,0.023,0.023,inputs-created
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,527.4,98.53,0.248,0.225,model-ready
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,527.4,98.53,8.06,7.812,peak-main-loop
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,527.4,98.53,0.934,-7.126,post-main-loop
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,508.49,99.13,0.023,0.023,inputs-created
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,508.49,99.13,0.248,0.225,model-ready
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,508.49,99.13,7.857,7.609,peak-main-loop
+1.14.0,12.0,8.700,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,508.49,99.13,0.708,-7.149,post-main-loop
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,524.85,97.85,0.023,0.023,inputs-created
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,524.85,97.85,0.248,0.225,model-ready
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,524.85,97.85,7.866,7.617999999999999,peak-main-loop
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,None,None,False,False,60192808,524.85,97.85,0.716,-7.1499999999999995,post-main-loop
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,523.34,96.75,0.023,0.023,inputs-created
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,523.34,96.75,0.248,0.225,model-ready
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,523.34,96.75,8.083,7.835,peak-main-loop
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,False,None,False,False,60192808,523.34,96.75,0.942,-7.141,post-main-loop
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,520.51,97.47,0.023,0.023,inputs-created
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,520.51,97.47,0.248,0.225,model-ready
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,520.51,97.47,7.866,7.617999999999999,peak-main-loop
+2.0.0,12.1,8.801,resnet152,True,Adam,32,256,256,65536,25,False,False,False,float32,None,False,False,False,False,False,None,True,None,False,False,60192808,520.51,97.47,0.716,-7.1499999999999995,post-main-loop

@@ -1,0 +1,426 @@
+<!doctype html><html lang=en dir=ltr>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content>
+<meta name=theme-color content="#FFFFFF"><meta property="og:title" content="PyTorch Memory Tuning">
+<meta property="og:description" content>
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://paulbridger.com/posts/pytorch-memory-tuning/"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2023-07-20T08:43:23+02:00">
+<meta property="article:modified_time" content="2023-07-20T08:43:23+02:00">
+<title>PyTorch Memory Tuning | paulbridger.com</title>
+<link rel=manifest href=/manifest.json>
+<link rel=icon href=/favicon.png type=image/x-icon>
+<link rel=stylesheet href=/book.min.b5056d4fbae4a365a3e7a6f0af8a29daf564e71fa285cacf5f41e0c78741630d.css integrity="sha256-tQVtT7rko2Wj56bwr4op2vVk5x+ihcrPX0Hgx4dBYw0=" crossorigin=anonymous>
+<script type=application/javascript>var doNotTrack=!1;doNotTrack||(window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)},ga.l=+new Date,ga('create','UA-3441595-4','auto'),ga('send','pageview'))</script>
+<script async src=https://www.google-analytics.com/analytics.js></script>
+<script src=https://d3js.org/d3.v7.min.js></script>
+<script src=https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.18.2/plotly.min.js></script>
+<meta name=twitter:card content="summary">
+<meta name=twitter:site content="@paul_bridger">
+<meta name=twitter:title content="PyTorch Memory Tuning">
+<meta name=twitter:image content="https://paulbridger.com/posts/pytorch-memory-tuning/scripts/images/checkpointing-resnet.png">
+<meta property="og:image" content="https://paulbridger.com/posts/pytorch-memory-tuning/scripts/images/checkpointing-resnet.png">
+</head>
+<body dir=ltr>
+<input type=checkbox class="hidden toggle" id=menu-control>
+<input type=checkbox class="hidden toggle" id=toc-control>
+<main class="container flex">
+<aside class=book-menu>
+<div class=book-menu-content>
+<nav>
+<h2 class=book-brand>
+<a href=/><span>paulbridger.com</span>
+</a>
+</h2>
+<ul>
+<li>
+<a href=https://paulbridger.com/posts/pytorch-memory-tuning/ class=active>PyTorch Memory Tuning</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/pytorch-tuning-tips/>PyTorch Performance Features and How They Interact</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/nsight-systems-systematic-optimization/>Solving Machine Learning Performance Anti-Patterns: a Systematic Approach</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pytorch-pipeline/>A Simple and Flexible Pytorch Video Pipeline</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-pipeline-tuning/>Object Detection from 9 FPS to 650 FPS in 6 Steps</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/video-analytics-deepstream-pipeline/>Object Detection at 1840 FPS with TorchScript, TensorRT and DeepStream</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/tensorrt-object-detection-quantized/>Object Detection at 2530 FPS with TensorRT and 8-Bit Quantization</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/mastering-torchscript/>Mastering TorchScript: Tracing vs Scripting, Device Pinning, Direct Graph Modification</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/consulting/>Consulting / Hire Me</a>
+</li>
+<li>
+<a href=https://paulbridger.com/posts/about/>About Paul Bridger</a>
+</li>
+</ul>
+</nav>
+<script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+</div>
+</aside>
+<div class=book-page>
+<header class=book-header>
+<div class="flex align-center justify-between">
+<label for=menu-control>
+<img src=/svg/menu.svg class=book-icon alt=Menu>
+</label>
+<strong>PyTorch Memory Tuning</strong>
+<label for=toc-control>
+<img src=/svg/toc.svg class=book-icon alt="Table of Contents">
+</label>
+</div>
+<aside class="hidden clearfix">
+<div class=book-toc-div>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#intro>Intro</a></li>
+<li><a href=#dont-forget-inference-mode>Don&rsquo;t Forget Inference-Mode</a></li>
+<li><a href=#use-mixed-precision-quantization>Use Mixed Precision (Quantization)</a></li>
+<li><a href=#use-activation-checkpointing>Use Activation Checkpointing</a>
+<ul>
+<li><a href=#a-more-convenient-api->A More Convenient API 🐒</a></li>
+<li><a href=#when-and-where-to-use-activation-checkpointing>When and Where to Use Activation Checkpointing</a></li>
+</ul>
+</li>
+<li><a href=#optimizer-choice-mdash-use-bitsandbytes>Optimizer Choice — Use <code>bitsandbytes</code></a>
+<ul>
+<li></li>
+</ul>
+</li>
+<li><a href=#use-set_to_nonetrue>Use <code>set_to_none=True</code></a></li>
+<li><a href=#final-thoughts>Final thoughts</a></li>
+</ul>
+</nav>
+<nav>
+</nav>
+</div>
+</aside>
+</header>
+<article class=markdown>
+<h1>
+<a href=/posts/pytorch-memory-tuning/>PyTorch Memory Tuning</a>
+</h1>
+<h5>July 20, 2023</h5>
+<div>
+<a href=/tags/pytorch/>Pytorch</a>,
+<a href=/tags/optimization/>Optimization</a>
+</div>
+<h2 id=intro>
+Intro
+<a class=anchor href=#intro>#</a>
+</h2>
+<p>In this article we will focus on <strong>minimizing GPU memory footprint</strong> — for both optimization and inference workloads — and we can largely forget about throughput for once. Usually companies ask me to help reduce inference response time or cost, but reducing memory consumption <strong>without making architecture sacrifices</strong> or blowing out throughput is often just as valuable.</p>
+<blockquote class="book-hint info">
+<p>For any kind of optimization, <a href=/posts/nsight-systems-systematic-optimization/>the systematic approach</a> is to break down the relevant measurement to a level where we have a clear signal as to what part of the system to improve next.</p>
+<ul>
+<li>In the case of <strong>throughput optimization we would break down the passage of GPU time</strong>, understanding which parts of the model and which operations on the GPU are wasting the most time.</li>
+<li>However, for <strong>reducing memory consumption we break down the process-level GPU memory consumption</strong> into smaller parts.</li>
+</ul>
+</blockquote>
+<p>Let&rsquo;s get started with an understanding of the components of memory consumption and how to measure it. Most optimization/training projects can split their GPU memory usage into:</p>
+<ul>
+<li><strong>Data tensors:</strong> batched data for input, and eventual output — image tensors, token tensors, embeddings, etc.</li>
+<li><strong>Model parameters:</strong> these are the weights (and biases) of the model layers which are used to compute the forward pass, and are passed to the optimizer to be updated based on computed loss.</li>
+<li><strong>Layer activations:</strong> during optimization/training, layerwise intermediate output tensors are retained during the forward pass in order to compute gradients in the backward pass.</li>
+<li><strong>Miscellaneous:</strong> CUDA kernel-related allocations, optimizer housekeeping data, normalization layer statistics, etc.</li>
+</ul>
+<p>Tensor memory consumption is easily calculated from dimensions and datatype, but a simple peak memory consumption measurement (<code>torch.cuda.max_memory_allocated()</code>) at various points in the execution provides a good on-device ground truth. For example:</p>
+<div id=scripts/charts/components.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/components.json").then(function(a){Plotly.newPlot('scripts/charts/components.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<p>A <strong>process level</strong> measurement like <code>torch.cuda.max_memory_allocated()</code> is often good enough to understand your memory breakdown and to track changes, but sometimes we want to understand usage at an <strong>individual tensor level</strong>. For a long time I have been using a modified version of <strong><a href=https://github.com/Oldpan/Pytorch-Memory-Utils>gpu_mem_track.py</a></strong> to trace allocation and deallocation of GPU-resident tensors as a delta between two points in the code. Check it out if you need to dig deeper.</p>
+<p>Enough preamble — let&rsquo;s get into some ways to reduce memory usage:</p>
+<h2 id=dont-forget-inference-mode>
+Don&rsquo;t Forget Inference-Mode
+<a class=anchor href=#dont-forget-inference-mode>#</a>
+</h2>
+<p>This is a simple gotcha we should get out of the way quickly — if you&rsquo;re doing inference rather than training/optimization, don&rsquo;t forget to enable <code>torch.inference_mode()</code>.</p>
+<p>If you&rsquo;re not in inference mode during the forward pass PyTorch will record layer activations to enable gradient calculation during a possible backward pass — this means allocating tensors that won&rsquo;t be used and wasting GPU memory.</p>
+<p>Using it is simple:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=hl><span class=k>with</span> <span class=n>torch</span><span class=o>.</span><span class=n>inference_mode</span><span class=p>():</span>
+</span>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
+</code></pre></div>
+<p>You should see significant peak memory reductions — here&rsquo;s an example using a classic image model, but this will apply to all models:</p>
+<div id=scripts/charts/inference-mode.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/inference-mode.json").then(function(a){Plotly.newPlot('scripts/charts/inference-mode.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<blockquote class="book-hint info">
+Both <code>inference_mode</code> and <code>no_grad</code> remove the activation allocations, for the difference see <a href=https://pytorch.org/docs/stable/notes/autograd.html#grad-modes>Autograd mechanics</a>.
+</blockquote>
+<h2 id=use-mixed-precision-quantization>
+Use Mixed Precision (Quantization)
+<a class=anchor href=#use-mixed-precision-quantization>#</a>
+</h2>
+<p>By far the easiest way to make substantial improvements to your memory footprint is with mixed precision. This works just as well for training as for inference. PyTorch has excellent native support for this via the <code>torch.autocast</code> context manager, turning default float32 computation and tensor storage into float16 or bfloat16.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=k>for</span> <span class=nb>input</span> <span class=ow>in</span> <span class=n>dataloader</span><span class=p>:</span>
+    <span class=k>with</span> <span class=n>torch</span><span class=o>.</span><span class=n>autocast</span><span class=p>(</span><span class=s2>&#34;cuda&#34;</span><span class=p>):</span>
+        <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=p>)</span>
+        <span class=n>loss</span> <span class=o>=</span> <span class=n>loss_fn</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>target</span><span class=p>)</span>
+    <span class=n>loss</span><span class=o>.</span><span class=n>backward</span><span class=p>()</span>
+    <span class=n>optimizer</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
+</code></pre></div>
+<p>One subtlety is that <code>torch.autocast</code> does not halve memory consumption as you might expect when converting float32 to float16 — this is because network parameters are kept in full precision, and <strong>only computation and the resulting activations happen at half precision</strong>. One consequence of this is that larger models with small input/output batches benefit much less from the memory-saving benefits of mixed-precision mode (though they still benefit from higher half precision throughput).</p>
+<blockquote class="book-hint warning">
+<strong>It is possible to exactly halve memory consumption</strong> by brute-forcing the cast to half precision rather than relying on <code>torch.autocast</code>. This will bypass the protections engineered into the <code>torch.autocast</code>/GradScaler system, so gradient underflow or overflow may become a problem during optimization.
+</blockquote>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=n>model</span> <span class=o>=</span> <span class=n>model</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>dtype</span><span class=o>=</span><span class=n>torch</span><span class=o>.</span><span class=n>float16</span><span class=p>)</span> <span class=c1># cast network parameters to float16</span>
+<span class=k>for</span> <span class=nb>input</span> <span class=ow>in</span> <span class=n>dataloader</span><span class=p>:</span>
+    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=nb>input</span><span class=o>.</span><span class=n>to</span><span class=p>(</span><span class=n>dtype</span><span class=o>=</span><span class=n>torch</span><span class=o>.</span><span class=n>float16</span><span class=p>))</span>
+    <span class=n>loss</span> <span class=o>=</span> <span class=n>loss_fn</span><span class=p>(</span><span class=n>output</span><span class=p>,</span> <span class=n>target</span><span class=p>)</span>
+    <span class=n>loss</span><span class=o>.</span><span class=n>backward</span><span class=p>()</span>
+    <span class=n>optimizer</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
+</code></pre></div>
+<p>The chart shows an optimization done at float32, float16 with autocast, and brute-forced float16:</p>
+<div id=scripts/charts/mixed-precision.json class=plotly style=height:400px></div>
+<script>d3.json("scripts/charts/mixed-precision.json").then(function(a){Plotly.newPlot('scripts/charts/mixed-precision.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<h2 id=use-activation-checkpointing>
+Use Activation Checkpointing
+<a class=anchor href=#use-activation-checkpointing>#</a>
+</h2>
+<p>In order to compute gradients (which happens when we call <code>loss.backward()</code>) PyTorch retains node activations computed in the forward pass, and these stored activations can consume a lot of memory. During inference we use <code>torch.inference_mode()</code> to entirely disable this activation storage, but even during training/optimization we can selectively turn off activation storage to reduce peak memory requirements: this is activation checkpointing.</p>
+<blockquote class="book-hint info">
+Activation checkpointing is a straight-forward compute vs memory trade-off — in the forward pass we execute some parts of the model without saving activations, and then when we call <code>loss.backward()</code> the missing activations will be automatically recalculated by repeating the required parts of the forward pass.
+</blockquote>
+<h3 id=a-more-convenient-api->
+A More Convenient API 🐒
+<a class=anchor href=#a-more-convenient-api->#</a>
+</h3>
+<p>The <a href=https://pytorch.org/docs/stable/checkpoint.html>PyTorch checkpoint API</a> gives us the basic functionality but doesn&rsquo;t include a code pattern to use checkpointing effectively with existing models, and also doesn&rsquo;t advise how best to use it — on which layers or blocks.</p>
+<p>The basic PyTorch API looks like this:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=kn>from</span> <span class=nn>torch.utils</span> <span class=kn>import</span> <span class=n>checkpoint</span> <span class=k>as</span> <span class=n>ckpt</span>
+<span class=c1># where module is part of a model:</span>
+<span class=n>result</span> <span class=o>=</span> <span class=n>module</span><span class=p>(</span><span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>)</span> <span class=c1># regular invocation with default activation caching</span>
+<span class=n>result</span> <span class=o>=</span> <span class=n>ckpt</span><span class=o>.</span><span class=n>checkpoint</span><span class=p>(</span><span class=n>module</span><span class=p>,</span> <span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>)</span> <span class=c1># checkpointed invocation</span>
+</code></pre></div>
+<p>In order to use this API in your model you would have to modify the model source code and therefore hard-code the checkpointing behavior. Much more useful would be a non-invasive API whereby you could seamlessly <a href=https://en.wikipedia.org/wiki/Monkey_patch>monkey-patch</a> the model, and checkpoint subgraphs easily.</p>
+<p>This is how I do it — with a tiny <code>CheckpointModule</code> class and a recursive function:</p>
+<div class=book-tabs><input type=radio class=toggle name=tabs-M id=tabs-M-0 checked>
+<label for=tabs-M-0>Usage</label>
+<div class="book-tabs-content markdown-inner">
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=n>model</span> <span class=o>=</span> <span class=n>torch</span><span class=o>.</span><span class=n>hub</span><span class=o>.</span><span class=n>load</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>
+<span class=n>model</span> <span class=o>=</span> <span class=n>ckpt_monkey</span><span class=p>(</span><span class=n>model</span><span class=p>,</span> <span class=n>re</span><span class=o>.</span><span class=n>compile</span><span class=p>(</span><span class=s1>&#39;layer1$&#39;</span><span class=p>))</span> <span class=c1># checkpoint all modules named &#34;layer1&#34;</span>
+</code></pre></div>
+</div><input type=radio class=toggle name=tabs-M id=tabs-M-1>
+<label for=tabs-M-1>CheckpointModule + ckpt_monkey</label>
+<div class="book-tabs-content markdown-inner">
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=kn>import</span> <span class=nn>torch</span>
+
+<span class=k>class</span> <span class=nc>CheckpointModule</span><span class=p>(</span><span class=n>torch</span><span class=o>.</span><span class=n>nn</span><span class=o>.</span><span class=n>Module</span><span class=p>):</span>
+    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>module</span><span class=p>):</span>
+        <span class=nb>super</span><span class=p>()</span><span class=o>.</span><span class=fm>__init__</span><span class=p>()</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>module</span> <span class=o>=</span> <span class=n>module</span>
+
+    <span class=k>def</span> <span class=nf>forward</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>torch</span><span class=o>.</span><span class=n>utils</span><span class=o>.</span><span class=n>checkpoint</span><span class=o>.</span><span class=n>checkpoint</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>module</span><span class=p>,</span> <span class=o>*</span><span class=n>args</span><span class=p>,</span> <span class=o>**</span><span class=n>kwargs</span><span class=p>)</span>
+
+<span class=k>def</span> <span class=nf>ckpt_monkey</span><span class=p>(</span><span class=n>module</span><span class=p>,</span> <span class=n>pattern_re</span><span class=p>,</span> <span class=n>ancestor_vn</span><span class=o>=</span><span class=s1>&#39;&#39;</span><span class=p>):</span>
+    <span class=k>for</span> <span class=n>vn</span><span class=p>,</span> <span class=n>v</span> <span class=ow>in</span> <span class=n>module</span><span class=o>.</span><span class=n>_modules</span><span class=o>.</span><span class=n>items</span><span class=p>():</span>
+        <span class=n>full_vn</span> <span class=o>=</span> <span class=sa>f</span><span class=s1>&#39;</span><span class=si>{</span><span class=n>ancestor_vn</span><span class=si>}</span><span class=s1>.</span><span class=si>{</span><span class=n>vn</span><span class=si>}</span><span class=s1>&#39;</span> <span class=k>if</span> <span class=n>ancestor_vn</span> <span class=k>else</span> <span class=n>vn</span>
+        <span class=n>v</span> <span class=o>=</span> <span class=n>ckpt_monkey</span><span class=p>(</span><span class=n>v</span><span class=p>,</span> <span class=n>pattern_re</span><span class=p>,</span> <span class=n>full_vn</span><span class=p>)</span>
+        <span class=k>if</span> <span class=n>pattern_re</span><span class=o>.</span><span class=n>match</span><span class=p>(</span><span class=n>full_vn</span><span class=p>):</span>
+            <span class=nb>print</span><span class=p>(</span><span class=s1>&#39;monkey-patching&#39;</span><span class=p>,</span> <span class=n>full_vn</span><span class=p>)</span>
+            <span class=nb>setattr</span><span class=p>(</span><span class=n>module</span><span class=p>,</span> <span class=n>vn</span><span class=p>,</span> <span class=n>CheckpointModule</span><span class=p>(</span><span class=n>v</span><span class=p>))</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=nb>setattr</span><span class=p>(</span><span class=n>module</span><span class=p>,</span> <span class=n>vn</span><span class=p>,</span> <span class=n>v</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>module</span>
+</code></pre></div>
+</div></div>
+<blockquote class="book-hint info">
+With <code>ckpt_monkey</code> 🐒 and <code>CheckpointModule</code> there&rsquo;s no need to rewrite model code, because the selected modules or layers are wrapped with checkpointing logic non-invasively.
+</blockquote>
+<h3 id=when-and-where-to-use-activation-checkpointing>
+When and Where to Use Activation Checkpointing
+<a class=anchor href=#when-and-where-to-use-activation-checkpointing>#</a>
+</h3>
+<p>You could checkpoint your entire model or you could checkpoint all individual layers of a specific type, but the ideal strategy is usually somewhere in between and will be model-specific. Because checkpointing incurs an additional compute cost you&rsquo;ll want to do as little as possible while fitting into your memory budget. However, <strong>not all checkpoints have the same ratio of compute to memory trade-off</strong> — it&rsquo;s often possible to save a lot of memory with a small compute cost, just as some checkpoints will incur a large compute cost for small memory savings.</p>
+<p>The most practical way to decide which modules to checkpoint is to simply measure the effect at various levels and locations, and then choose a set of checkpointed modules so that you fit within your memory budget but incur the smallest throughput impact. One key guideline is that <strong>separate checkpoints are independent and cumulative with respect to memory savings and additional compute incurred</strong> — so you can keep adding checkpoints with a good memory-to-compute trade-off until you get within your memory budget.</p>
+<p>Let&rsquo;s see a couple of examples:</p>
+<h4 id=resnet-152>
+ResNet-152
+<a class=anchor href=#resnet-152>#</a>
+</h4>
+<ul>
+<li>ResNet-152 as implemented in PyTorch hub has four top-level layers consisting of varying numbers of convolution, batchnorm and ReLU operations — the points in the scatter plot below correspond to subsets of these top-level layers being checkpointed.</li>
+<li>The <code>mem-ckpt</code> (point color) is the regexp pattern applied when selecting checkpoints with <code>ckpt_monkey</code>, i.e. <code>layer(1|2)</code> means layer1 and layer2 were checkpointed, <code>layer(1|2|3|4)</code> is essentially the whole model checkpointed.</li>
+</ul>
+<div id=scripts/charts/checkpointing-resnet.json class=plotly style=height:400px></div>
+<script>d3.json("scripts/charts/checkpointing-resnet.json").then(function(a){Plotly.newPlot('scripts/charts/checkpointing-resnet.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<ul>
+<li>The best checkpoints in this visualization are down and to the right — <code>layer1</code>, <code>layer2</code> both have low throughput cost and give significant memory savings. Note that in checkpointing both these layers we can get a ~34% memory saving at the cost of only 10% lower throughput — not bad.</li>
+<li>Not all checkpoints are equal: <code>layer3</code> and <code>layer4</code> don&rsquo;t give a good trade-off, and aren&rsquo;t worthwhile.</li>
+</ul>
+<h4 id=bert>
+BERT
+<a class=anchor href=#bert>#</a>
+</h4>
+<ul>
+<li>This version of BERT (<code>bert-base-uncased</code> hosted on Hugging Face) has 12 sequential attention + intermediate + output layers — each consisting of linear, layernorm and GELU operations.</li>
+</ul>
+<div id=scripts/charts/checkpointing-bert.json class=plotly style=height:400px></div>
+<script>d3.json("scripts/charts/checkpointing-bert.json").then(function(a){Plotly.newPlot('scripts/charts/checkpointing-bert.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<ul>
+<li>All 12 layers give the same memory/throughput trade-off — which makes sense as they have the same number of parameters and operations. (I&rsquo;ve only included a data point for the first and last layer for simplicity, as they all superimpose near perfectly).</li>
+<li>Checkpointing two, three, or more layers show predictable, cumulative effects — the chart contains points for zero, one, two, three and twelve layers checkpointed.</li>
+</ul>
+<h2 id=optimizer-choice-mdash-use-bitsandbytes>
+Optimizer Choice — Use <code>bitsandbytes</code>
+<a class=anchor href=#optimizer-choice-mdash-use-bitsandbytes>#</a>
+</h2>
+<p>In practice <strong>we cannot swap out optimizers based on simple measures of memory consumption or batch throughput</strong> — different optimization algorithms have wildly different rates of convergence which will dwarf the effect of low-level performance differences in reaching a desired network state. This matches one of the long-known truths of optimization work, that high-level algorithm improvements are far more impactful than low-level tweaks.</p>
+<p>However <strong>trade-offs do exist</strong> — a given optimization algorithm can be implemented in different ways and at different precisions. The <a href=https://github.com/TimDettmers/bitsandbytes><code>bitsandbytes</code></a> library by <a href=https://twitter.com/Tim_Dettmers>Tim Dettmers</a> is a great example of this. The library provides 8-bit versions of many algorithms available in <code>torch.optim</code>, often with support for paging state tensors between host and GPU memory as required.</p>
+<p>Let&rsquo;s look at the effect of different optimization algorithms and the <code>bitsandbytes</code> 8-bit implementations, using PyTorch Adam as the reference point against which percentage-changes are calculated:</p>
+<h4 id=resnet-152-1>
+ResNet-152
+<a class=anchor href=#resnet-152-1>#</a>
+</h4>
+<div id=scripts/charts/optimizer-resnet.json class=plotly style=height:400px></div>
+<script>d3.json("scripts/charts/optimizer-resnet.json").then(function(a){Plotly.newPlot('scripts/charts/optimizer-resnet.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<ul>
+<li>Some of the more retro algorithms (SGD, RMSprop, Adagrad) implemented in <code>torch.optim</code> consume less memory and give higher throughput than Adam. This is hard to care about since Adam converges much faster, and is included as a historical curiosity.</li>
+<li>The <code>bitsandbytes</code> 8-bit implementations give substantial memory savings at the cost of non-trivial throughput costs, at least for this model.</li>
+<li>Paged optimizer implementations save even more memory at a minor throughput cost.</li>
+</ul>
+<blockquote class="book-hint warning">
+<a href=https://github.com/TimDettmers/bitsandbytes><code>bitsandbytes</code></a> claims ~75% memory savings instead of the 7-10% shown here. This is what you&rsquo;d expect going from 32-bit to 8-bit precision, and I&rsquo;ve empirically verified their 75% is correct. They consider memory consumed by the optimizer itself, whereas these charts show peak training-loop memory in the context of these specific models.
+</blockquote>
+<h4 id=bert-1>
+BERT
+<a class=anchor href=#bert-1>#</a>
+</h4>
+<div id=scripts/charts/optimizer-bert.json class=plotly style=height:400px></div>
+<script>d3.json("scripts/charts/optimizer-bert.json").then(function(a){Plotly.newPlot('scripts/charts/optimizer-bert.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<ul>
+<li>For BERT, the <code>bitsandbytes</code> 8-bit optimizers improve both memory footprint and throughput. We would need to trace the workload to understand exactly why, but I&rsquo;ll take it.</li>
+</ul>
+<h2 id=use-set_to_nonetrue>
+Use <code>set_to_none=True</code>
+<a class=anchor href=#use-set_to_nonetrue>#</a>
+</h2>
+<p>If you&rsquo;re still using PyTorch 1.X you can reduce your peak optimization memory by using the <code>set_to_none=True</code> option when resetting gradients. PyTorch 2.0 changes the default to <code>True</code> so if you&rsquo;ve already upgraded you&rsquo;re probably already getting this benefit.</p>
+<p>In detail — in your training loop you will reset gradients after doing <code>loss.backward()</code> and <code>optimizer.step()</code>. Either <code>optimizer.zero_grad()</code> or <code>model.zero_grad()</code> works, resetting all parameters sent to the optimizer or all parameters in the model respectively.</p>
+<p>In order to save memory by resetting gradient tensors to None instead of updating them to dense 0.0-valued tensors, simply call <code>optimizer.zero_grad(set_to_none=True)</code> or <code>model.zero_grad(set_to_none=True)</code>.</p>
+<div id=scripts/charts/set-to-none.json class=plotly style=height:300px></div>
+<script>d3.json("scripts/charts/set-to-none.json").then(function(a){Plotly.newPlot('scripts/charts/set-to-none.json',a.data,a.layout,{responsive:!0,displayModeBar:!1})})</script>
+<h2 id=final-thoughts>
+Final thoughts
+<a class=anchor href=#final-thoughts>#</a>
+</h2>
+<p>As usual when writing a higher-level overview article backed by empirical data, the model-specific results (and differences) are interesting but also raise deeper questions as to why. In particular, the differing throughput vs memory trade-offs incurred when checkpointing different subgraphs in different models is something I&rsquo;ll dig into in a future article.</p>
+<p>We can distill all the charts and explanations above into some fairly simple recommendations for reducing PyTorch GPU memory usage without making architectural changes:</p>
+<ul>
+<li>Always use mixed precision always unless you find a special case where it causes problems, and even then you can usually determine which subgraph is causing problems and turn off autocast in that specific section.
+<ul>
+<li>During optimization/training you generally shouldn&rsquo;t brute-force half precision on your models unless you are sure you don&rsquo;t need the over/underflow protection of the PyTorch autocast/grad-scaler functionality.</li>
+<li>During inference brute-forcing half precision is a perfectly acceptable alternative to autocast, but make sure you test the output.</li>
+</ul>
+</li>
+<li>Unless doing optimization/training, make sure to use inference mode to save a huge amount of activation memory.</li>
+<li>Prefer the <a href=https://github.com/TimDettmers/bitsandbytes><code>bitsandbytes</code></a> 8-bit optimizers over the <code>torch.optim</code> implementations, but test convergence.</li>
+<li>Use set_to_none=True when resetting gradients at the end of your training loop. If using PyTorch >= 2.0 this is already the default.</li>
+<li>If you need to save even more memory, use activation checkpointing after empirically finding the most cost-effective subgraphs on a memory-saved per throughput-lost basis.</li>
+</ul>
+<p>Thanks for reading, and I hope you found this useful!</p>
+</article>
+<article class="markdown social">
+<hr>
+<section class=social-share>
+<ul class=share-icons>
+<li>
+<a href target=_blank class="share-btn newsletter"><svg class="widget-social__link-icon icon icon-mail" fill="#fff" width="24" height="24" viewBox="0 0 166.781 166.781"><g><g><g><path d="M163.451 70.046l-32.35-20.847c-.253-.161-.532-.222-.804-.312v-7.19c0-1.92-1.554-3.475-3.475-3.475H113.92L86.97 21.378c-1.126-.706-2.558-.706-3.685.0l-26.95 16.844H39.958c-1.92.0-3.475 1.554-3.475 3.475v7.188c-.272.09-.552.152-.804.314L3.329 70.046c-.991.641-1.592 1.741-1.592 2.921v90.339c0 1.92 1.554 3.475 3.475 3.475h156.356c1.92.0 3.475-1.554 3.475-3.475V72.968C165.043 71.787 164.442 70.688 163.451 70.046zM85.128 28.423l15.681 9.799H69.447l15.681-9.799zM43.433 45.171h79.915v78.178c0 .01.006.018.006.029l-11.754 7.137-28.284-15.427c-1.055-.57-2.338-.567-3.386.034l-25.81 14.749-10.692-6.492c0-.01.006-.018.006-.028L43.433 45.171zM8.687 74.861l27.796-17.91v62.212L8.687 102.285V74.861zm0 35.551 38.537 23.397L8.687 155.831V110.412zm7.002 49.421 66.005-37.715 69.145 37.715H15.689zm142.405-3.959L118.65 134.36l39.444-23.949v45.463zm0-53.589-27.797 16.877V56.951l27.797 17.911v27.423z"/><path d="M57.331 79.917h41.695c1.92.0 3.475-1.554 3.475-3.475V55.595c0-1.92-1.554-3.475-3.475-3.475H57.331c-1.92.0-3.475 1.554-3.475 3.475v20.847C53.856 78.363 55.411 79.917 57.331 79.917zm3.474-20.848h34.746v13.898H60.805V59.069z"/><rect x="53.856" y="86.866" width="55.593" height="6.949"/><rect x="53.856" y="100.765" width="55.593" height="6.949"/><path d="M147.67 41.697c.889.0 1.778-.339 2.457-1.018l12.283-12.283c1.357-1.357 1.357-3.556.0-4.913-1.357-1.358-3.556-1.357-4.913.0l-12.283 12.283c-1.357 1.357-1.357 3.556.0 4.913C145.892 41.358 146.781 41.697 147.67 41.697z"/><path d="M16.654 40.679c.679.679 1.568 1.018 2.457 1.018s1.778-.339 2.457-1.018c1.357-1.357 1.357-3.556.0-4.913L9.284 23.483c-1.357-1.357-3.556-1.357-4.913.0s-1.357 3.556.0 4.913L16.654 40.679z"/><path d="M118.584 24.076c.421.17.859.247 1.289.247 1.378.0 2.684-.825 3.227-2.185l6.949-17.373c.713-1.781-.156-3.804-1.937-4.516-1.764-.709-3.804.149-4.516 1.937l-6.949 17.373C115.934 21.341 116.802 23.364 118.584 24.076z"/><path d="M47.155 22.139c.543 1.361 1.849 2.185 3.227 2.185.431.0.869-.078 1.289-.248 1.781-.713 2.65-2.735 1.937-4.516L46.659 2.187C45.946.399 43.911-.46 42.143.25c-1.781.713-2.65 2.735-1.937 4.516l6.949 17.373z"/></g></g></g></svg>
+<p>Newsletter</p>
+</a>
+</li>
+<li class=share-label>
+<script async data-uid=d104ecfe6c src=https://paulbridger.ck.page/d104ecfe6c/index.js></script>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter" class="share-btn twitter"><svg class="widget-social__link-icon icon icon-twitter" width="24" height="24" viewBox="0 0 384 312"><path fill="#fff" d="m384 36.9c-14.1 6.3-29.3 10.5-45.2 12.4 16.3-9.7 28.8-25.2 34.6-43.6-15.2 9-32.1 15.6-50 19.1-14.4-15.2-34.9-24.8-57.5-24.8-43.5.0-78.8 35.3-78.8 78.8.0 6.2.7 12.2 2 17.9-65.5-3.3-123.5-34.6-162.4-82.3C20 26 16.1 39.6 16.1 54c0 27.3 13.9 51.4 35 65.6-12.9-.4-25.1-4-35.7-9.9v1c0 38.2 27.2 70 63.2 77.2-6.6 1.8-13.6 2.8-20.8 2.8-5.1.0-10-.5-14.8-1.4 10 31.3 39.1 54.1 73.6 54.7-27 21.1-60.9 33.7-97.8 33.7-6.4.0-12.6-.4-18.8-1.1C34.9 299 76.3 312 120.8 312c144.9.0 224.1-120 224.1-224.1.0-3.4-.1-6.8-.2-10.2 15.4-11.1 28.7-25 39.3-40.8z"/></svg>
+<p>Twitter</p>
+</a>
+</li>
+<li class=share-label>
+<a href="https://twitter.com/intent/follow?ref_src=twsrc%5Etfw&region=follow_link&screen_name=paul_bridger&tw_p=followbutton" target=_blank rel=noopener aria-label="Follow on Twitter">
+Follow on Twitter
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn" class="share-btn linkedin"><svg class="widget-social__link-icon icon icon-linkedin" width="24" height="24" viewBox="0 0 352 352"><path fill="#fff" d="M0 40v272c0 21.9 18.1 40 40 40h272c21.9.0 40-18.1 40-40V40c0-21.9-18.1-40-40-40H40C18.1.0.0 18.1.0 40zm312-8c4.6.0 8 3.4 8 8v272c0 4.6-3.4 8-8 8H40c-4.6.0-8-3.4-8-8V40c0-4.6 3.4-8 8-8H312zM59.5 87c0 15.2 12.3 27.5 27.5 27.5s27.5-12.3 27.5-27.5S102.2 59.5 87 59.5 59.5 71.8 59.5 87zM187 157h-1v-21h-45v152h47v-75c0-19.8 3.9-39 28.5-39 24.2.0 24.5 22.4 24.5 40v74h47v-83.5c0-40.9-8.7-72-56.5-72-23 0-38.2 12.6-44.5 24.5zM64 288h47.5V136H64V288z"/></svg>
+<p>LinkedIn</p>
+</a>
+</li>
+<li class=share-label>
+<a href=https://www.linkedin.com/in/paulbridger/ target=_blank rel=noopener aria-label="Connect on LinkedIn">
+Connect on LinkedIn
+</a>
+</li>
+</ul>
+<ul class=share-icons>
+<li>
+<a href=mailto:paul@paulbridger.com target=_blank class="share-btn email"><svg class="widget-social__link-icon icon icon-mail" width="24" height="24" viewBox="0 0 416 288"><path fill="#fff" d="m0 16v256 16h16 384 16v-16V16 0h-16H16 0zm347 16-139 92.5L69 32zM199 157.5l9 5.5 9-5.5L384 46v210H32V46z"/></svg>
+<p>Email</p>
+</a>
+</li>
+<li class=share-label>
+<a href=mailto:paul@paulbridger.com target=_blank>
+Contact by Email
+</a>
+</li>
+</ul>
+</section>
+</article>
+<footer class=book-footer>
+<div class="flex flex-wrap justify-between">
+</div>
+<script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script>
+<hr>
+<b>&copy; Paul Bridger 2020</b>
+</footer>
+<div class=book-comments>
+</div>
+<label for=menu-control class="hidden book-menu-overlay"></label>
+</div>
+<aside class=book-toc>
+<div class=book-toc-content>
+<div class=book-toc-div>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#intro>Intro</a></li>
+<li><a href=#dont-forget-inference-mode>Don&rsquo;t Forget Inference-Mode</a></li>
+<li><a href=#use-mixed-precision-quantization>Use Mixed Precision (Quantization)</a></li>
+<li><a href=#use-activation-checkpointing>Use Activation Checkpointing</a>
+<ul>
+<li><a href=#a-more-convenient-api->A More Convenient API 🐒</a></li>
+<li><a href=#when-and-where-to-use-activation-checkpointing>When and Where to Use Activation Checkpointing</a></li>
+</ul>
+</li>
+<li><a href=#optimizer-choice-mdash-use-bitsandbytes>Optimizer Choice — Use <code>bitsandbytes</code></a>
+<ul>
+<li></li>
+</ul>
+</li>
+<li><a href=#use-set_to_nonetrue>Use <code>set_to_none=True</code></a></li>
+<li><a href=#final-thoughts>Final thoughts</a></li>
+</ul>
+</nav>
+<nav>
+</nav>
+</div>
+</div>
+</aside>
+</main>
+</body>
+</html>
